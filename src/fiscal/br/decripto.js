@@ -35,15 +35,15 @@ export const CONTAM = ['exterior', 'autocustodia'];
  * comprou R$ 50.000 em autocustódia e não vendeu nada.
  */
 export function avaliarDecripto(operacoes) {
-  const contadas = operacoes.filter((o) => CONTAM.includes(custodiaDe(o)));
-  const somatorio = contadas.reduce((s, o) => s + valorDe(o), 0);
+  const contadas = operacoes.filter((o) => CONTAM.includes(custodiaContavel(o)));
+  const somatorio = contadas.reduce((s, o) => s + valorDaOperacao(o), 0);
 
   return {
     obrigado: somatorio > TETO_DECRIPTO,
     somatorio,
     teto: TETO_DECRIPTO,
     quantidade: contadas.length,
-    custodiasContadas: [...new Set(contadas.map(custodiaDe))],
+    custodiasContadas: [...new Set(contadas.map(custodiaContavel))],
     prazo: 'último dia útil do mês seguinte ao das operações',
     canal: 'e-CAC',
     fonte: 'IN RFB nº 2.291/2025',
@@ -52,8 +52,14 @@ export function avaliarDecripto(operacoes) {
   };
 }
 
-/** Transferência tem `de` e `para`; os dois lados contam se forem contáveis. */
-function custodiaDe(op) {
+/**
+ * Transferência tem `de` e `para`; os dois lados contam se forem contáveis.
+ *
+ * Exportada porque `relatorio/ecac.js` precisa da MESMA regra. Duplicar isto lá
+ * seria criar dois lugares que decidem o que conta para a DeCripto — e dois
+ * lugares assim divergem, cedo ou tarde, sem ninguém perceber.
+ */
+export function custodiaContavel(op) {
   if (op.tipo === 'transferencia') {
     return CONTAM.includes(op.de) ? op.de : op.para;
   }
@@ -68,6 +74,6 @@ function custodiaDe(op) {
  * movido, que é o único valor conhecido e verdadeiro; `avaliar` recebe esse
  * custo já calculado por `apuracao.js`.
  */
-function valorDe(op) {
+export function valorDaOperacao(op) {
   return op.tipo === 'transferencia' ? (op.custo ?? 0) : op.valor;
 }

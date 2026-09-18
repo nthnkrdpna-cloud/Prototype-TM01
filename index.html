@@ -1480,15 +1480,15 @@ const CONTAM = ['exterior', 'autocustodia'];
  * comprou R$ 50.000 em autocustódia e não vendeu nada.
  */
 function avaliarDecripto(operacoes) {
-  const contadas = operacoes.filter((o) => CONTAM.includes(custodiaDe(o)));
-  const somatorio = contadas.reduce((s, o) => s + valorDe(o), 0);
+  const contadas = operacoes.filter((o) => CONTAM.includes(custodiaContavel(o)));
+  const somatorio = contadas.reduce((s, o) => s + valorDaOperacao(o), 0);
 
   return {
     obrigado: somatorio > TETO_DECRIPTO,
     somatorio,
     teto: TETO_DECRIPTO,
     quantidade: contadas.length,
-    custodiasContadas: [...new Set(contadas.map(custodiaDe))],
+    custodiasContadas: [...new Set(contadas.map(custodiaContavel))],
     prazo: 'último dia útil do mês seguinte ao das operações',
     canal: 'e-CAC',
     fonte: 'IN RFB nº 2.291/2025',
@@ -1497,8 +1497,14 @@ function avaliarDecripto(operacoes) {
   };
 }
 
-/** Transferência tem `de` e `para`; os dois lados contam se forem contáveis. */
-function custodiaDe(op) {
+/**
+ * Transferência tem `de` e `para`; os dois lados contam se forem contáveis.
+ *
+ * Exportada porque `relatorio/ecac.js` precisa da MESMA regra. Duplicar isto lá
+ * seria criar dois lugares que decidem o que conta para a DeCripto — e dois
+ * lugares assim divergem, cedo ou tarde, sem ninguém perceber.
+ */
+function custodiaContavel(op) {
   if (op.tipo === 'transferencia') {
     return CONTAM.includes(op.de) ? op.de : op.para;
   }
@@ -1513,7 +1519,7 @@ function custodiaDe(op) {
  * movido, que é o único valor conhecido e verdadeiro; `avaliar` recebe esse
  * custo já calculado por `apuracao.js`.
  */
-function valorDe(op) {
+function valorDaOperacao(op) {
   return op.tipo === 'transferencia' ? (op.custo ?? 0) : op.valor;
 }
 /* src/fiscal/br/colateral.js */
@@ -1631,6 +1637,115 @@ function margemAteLiquidar(ltv, ltvLiquidacao = 0.8) {
 
 /** A parte do colateral que corresponde a um valor emprestado. */
 const colateralPara = (emprestado, ltv) => proporcao(emprestado, 1000, Math.round(ltv * 1000));
+/* src/fiscal/br/cvm.js */
+// Análise fundamentalista: a leitura de uma entidade, não da apuração de alguém.
+//
+// Páginas 4 e 5 do Blueprint do Arquiteto.
+//
+// ⚠️ ESTE MÓDULO NÃO SE MISTURA COM A APURAÇÃO DE PESSOA FÍSICA, e a separação
+// é de audiência, não de arrumação:
+//
+//   Resolução CVM 242 vincula **companhia aberta** — ela aprova o Documento de
+//   Revisão de Pronunciamentos Técnicos nº 29 do CPC, para exercícios iniciados
+//   em ou após 1º/01/2026. IFRS 9 é perda esperada de crédito; IFRS 16 é
+//   arrendamento. Nada disso alcança quem declara imposto como pessoa física.
+//
+// Então o que este arquivo faz é outra coisa: lê os números que uma empresa
+// PUBLICA e devolve indicadores. Serve a quem analisa antes de comprar, não a
+// quem apura o que já vendeu.
+//
+// ⚠️ E INDICADOR NÃO É VEREDITO. A página 5 fala em "raio-x" que "separa
+// empresas verdadeiras de ilusões de mercado". O que uma razão entre dois
+// números do balanço faz é bem menos: ela resume. Um índice de alavancagem alto
+// pode ser empresa em apuros ou empresa que acabou de captar para crescer, e o
+// número é o mesmo nos dois casos. Por isso cada indicador vem com a faixa e
+// **sem julgamento**.
+//
+// SEM REDE. Os balanços são digitados ou importados; nenhuma requisição sai.
+
+/** As normas que este módulo diz respeitar, com o que cada uma alcança. */
+const NORMAS = [
+  {
+    norma: 'Resolução CVM 242',
+    alcanca: 'companhia aberta',
+    oque: 'aprova o Documento de Revisão de Pronunciamentos Técnicos nº 29 do CPC',
+    vigencia: 'exercícios iniciados em ou após 1º/01/2026',
+  },
+  { norma: 'IFRS 9 / CPC 48', alcanca: 'entidade', oque: 'perda esperada de crédito' },
+  { norma: 'IFRS 16 / CPC 06 (R2)', alcanca: 'entidade', oque: 'arrendamentos' },
+  { norma: 'IFRS S1 e S2 (ISSB)', alcanca: 'entidade', oque: 'divulgação de sustentabilidade' },
+];
+
+/**
+ * Os indicadores da página 5: alavancagem, margem operacional, patrimônio.
+ *
+ * Tudo em centavos inteiros, como o resto do projeto. Divisão por zero devolve
+ * `null` e o motivo — nunca `Infinity`, que numa tela vira símbolo e num CSV
+ * vira a palavra.
+ */
+function indicadores({
+  ativoTotal,
+  passivoTotal,
+  patrimonioLiquido,
+  receitaLiquida,
+  resultadoOperacional,
+  dividaBruta = 0,
+  caixa = 0,
+}) {
+  const razao = (a, b) => (b === 0 ? null : Math.round((a / b) * 10000) / 10000);
+
+  const dividaLiquida = dividaBruta - caixa;
+
+  return {
+    // quanto de terceiro para cada real próprio
+    alavancagem: {
+      valor: razao(passivoTotal, patrimonioLiquido),
+      formula: 'passivo total ÷ patrimônio líquido',
+      semValor: patrimonioLiquido === 0 ? 'patrimônio líquido zero ou negativo' : null,
+    },
+    margemOperacional: {
+      valor: razao(resultadoOperacional, receitaLiquida),
+      formula: 'resultado operacional ÷ receita líquida',
+      semValor: receitaLiquida === 0 ? 'sem receita no período' : null,
+    },
+    dividaLiquida: {
+      valor: dividaLiquida,
+      formula: 'dívida bruta − caixa',
+      // negativo quer dizer caixa maior que dívida, e isso não é defeito
+      caixaLiquido: dividaLiquida < 0,
+    },
+    participacaoDoPatrimonio: {
+      valor: razao(patrimonioLiquido, ativoTotal),
+      formula: 'patrimônio líquido ÷ ativo total',
+      semValor: ativoTotal === 0 ? 'ativo total zero' : null,
+    },
+
+    // ⚠️ o campo que impede o resto de virar veredito
+    leitura: 'Indicadores resumem, não julgam. Alavancagem alta pode ser aperto '
+      + 'ou captação para crescer, e o número é o mesmo nos dois casos. O que '
+      + 'separa os dois não está no balanço.',
+    normas: NORMAS,
+  };
+}
+
+/**
+ * Confere se um conjunto de números fecha: ativo = passivo + patrimônio.
+ *
+ * É a primeira coisa a fazer com balanço digitado à mão, e a que ninguém faz.
+ * Números que não fecham produzem indicadores perfeitamente calculáveis e
+ * completamente falsos.
+ */
+function fecha({ ativoTotal, passivoTotal, patrimonioLiquido }, tolerancia = 100) {
+  const diferenca = ativoTotal - (passivoTotal + patrimonioLiquido);
+  return {
+    fecha: Math.abs(diferenca) <= tolerancia,
+    diferenca,
+    tolerancia,
+    porque: 'ativo total tem de igualar passivo mais patrimônio líquido. Se não '
+      + 'fecha, algum número foi digitado errado — e indicador sobre número '
+      + 'errado sai calculável e falso.',
+  };
+}
 /* src/fiscal/br/apurar.js */
 // O fechamento: pega os eventos e devolve o mês e o ano, prontos para a tela.
 //
@@ -1714,6 +1829,112 @@ function avisosDe(eventos) {
 function mesDoFechamento(eventos, aaaaMM) {
   return fechar(eventos).meses.find((m) => m.mes === aaaaMM) ?? null;
 }
+/* src/relatorio/ecac.js */
+// O insumo da DeCripto: o mês compilado para quem vai declarar.
+//
+// Página 6 do Blueprint do Arquiteto.
+//
+// ⚠️ ISTO NÃO GERA O ARQUIVO OFICIAL, e a diferença importa mais que o trabalho
+// que dá:
+//
+//   O leiaute que o e-CAC aceita é da Receita, muda, e é validado na entrega.
+//   Uma ferramenta que gerasse um arquivo recusado pelo sistema custaria à
+//   pessoa **um prazo** para descobrir — e prazo perdido em obrigação mensal
+//   vira multa. Gerar nada é melhor que gerar algo que parece pronto e não é.
+//
+// O que este módulo faz é o trabalho que realmente dá trabalho: separar as
+// operações que contam, somar por ativo e por custódia, e entregar isso num
+// formato que a pessoa (ou o contador dela) transcreve. A conferência é dela,
+// como tudo o mais aqui.
+
+/**
+ * Compila um mês para entrega.
+ *
+ * Recebe os eventos já apurados — não recalcula nada. Recalcular aqui seria o
+ * jeito de o relatório divergir da tela, que é o defeito que este projeto
+ * combate desde o começo.
+ */
+function compilar(eventos, mes) {
+  const doMes = eventos.filter((e) => e.data.startsWith(mes));
+  const contaveis = doMes.filter((e) => CONTAM.includes(custodiaContavel(e)));
+
+  const somatorio = contaveis.reduce((s, e) => s + valorDaOperacao(e), 0);
+  const obrigado = somatorio > TETO_DECRIPTO;
+
+  return {
+    mes,
+    obrigado,
+    somatorio,
+    teto: TETO_DECRIPTO,
+    prazo: 'último dia útil do mês seguinte ao das operações',
+    canal: 'e-CAC',
+    fonte: 'IN RFB nº 2.291/2025',
+
+    porAtivo: agruparPor(contaveis, (e) => e.ativo),
+    porCustodia: agruparPor(contaveis, custodiaContavel),
+    operacoes: contaveis.map((e) => ({
+      data: e.data,
+      tipo: e.tipo,
+      ativo: e.ativo,
+      quantidade: e.quantidade,
+      valor: valorDaOperacao(e),
+      custodia: custodiaContavel(e),
+    })),
+
+    // ⚠️ dito no objeto, não só no comentário
+    geraArquivoOficial: false,
+    aviso: 'Insumo para a declaração, não o arquivo de entrega. O leiaute do '
+      + 'e-CAC é da Receita e muda; gerar um arquivo que o sistema recusa '
+      + 'custaria um prazo para descobrir.',
+  };
+}
+
+/** O mesmo compilado, em texto que se lê e se transcreve. */
+function comoTexto(c) {
+  const linhas = [
+    `DeCripto — ${c.mes}`,
+    `Obrigado a declarar: ${c.obrigado ? 'SIM' : 'não'}`,
+    `Somatório de operações fora de exchange nacional: ${formatarBRL(c.somatorio)}`,
+    `Teto da ${c.fonte}: ${formatarBRL(c.teto)}`,
+    '',
+  ];
+
+  if (c.obrigado) linhas.push(`Prazo: ${c.prazo}, pelo ${c.canal}`, '');
+
+  linhas.push('Por ativo:');
+  for (const [ativo, { valor, quantos }] of Object.entries(c.porAtivo)) {
+    linhas.push(`  ${ativo.padEnd(8)} ${formatarBRL(valor).padStart(18)}  (${quantos} ops)`);
+  }
+
+  linhas.push('', 'Por custódia:');
+  for (const [cust, { valor, quantos }] of Object.entries(c.porCustodia)) {
+    linhas.push(`  ${cust.padEnd(14)} ${formatarBRL(valor).padStart(18)}  (${quantos} ops)`);
+  }
+
+  linhas.push('', 'Operações:');
+  for (const o of c.operacoes) {
+    linhas.push(`  ${o.data}  ${o.tipo.padEnd(14)} ${o.ativo.padEnd(6)} `
+      + `${formatarQuantidade(o.quantidade).padStart(14)} ${formatarBRL(o.valor).padStart(16)}  ${o.custodia}`);
+  }
+
+  linhas.push('', `⚠️ ${c.aviso}`);
+  return linhas.join('\n');
+}
+
+function agruparPor(eventos, chave) {
+  const fora = {};
+  for (const e of eventos) {
+    const k = chave(e);
+    if (!fora[k]) fora[k] = { valor: 0, quantos: 0 };
+    fora[k].valor += valorDaOperacao(e);
+    fora[k].quantos += 1;
+  }
+  return fora;
+}
+
+// `custodiaContavel` e `valorDaOperacao` vêm de `decripto.js` de propósito: são
+// a MESMA regra que decide o gatilho da declaração. Reimplementá-las aqui daria
+// dois lugares decidindo o que conta, e dois lugares assim divergem.
 /* src/mercado/fibonacci.js */
 // Retrações e projeções de Fibonacci, sobre uma série que a pessoa importa.
 //
