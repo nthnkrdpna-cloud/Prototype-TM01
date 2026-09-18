@@ -43,6 +43,8 @@ const MODULOS = [
   'src/mercado/fibonacci.js',
   'src/mercado/fluxo.js',
   'src/mercado/vix.js',
+  'src/mercado/rwa.js',
+  'src/mercado/esg.js',
   'src/assinatura.js',
   'src/ui/tela.js',
 ];

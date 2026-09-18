@@ -2297,6 +2297,209 @@ function porFaixa(valor, regra) {
   if (!(fracao >= 0 && fracao <= 1)) throw new RangeError('a fração tem de ficar entre 0 e 1');
   return { faixa, fracao, porque: 'regra sua, aplicada à faixa lida' };
 }
+/* src/mercado/rwa.js */
+// Ativo do mundo real tokenizado: as perguntas que decidem se o lastro existe.
+//
+// Página 14 do Blueprint do Arquiteto.
+//
+// A PROMESSA DO RWA é que um token represente uma coisa que existe — um imóvel,
+// um recebível, uma safra. O que muda tudo é onde a promessa se sustenta:
+//
+//   **Blockchain garante que o token é seu. Não garante que o lastro existe.**
+//
+// A rede prova que a transferência aconteceu e que ninguém gastou duas vezes.
+// Ela não sai a campo conferir se o imóvel foi registrado, se o recebível foi
+// cedido, nem se o emissor é solvente. Isso continua sendo problema de papel,
+// de cartório e de auditor — exatamente como antes.
+//
+// Por isso este módulo NÃO pontua "qualidade" de um RWA. Ele faz as perguntas
+// cuja resposta em branco é a informação: um lastro sem custodiante nomeado,
+// sem auditoria e sem caminho de execução não é um ativo mal avaliado — é um
+// ativo cuja avaliação não foi possível.
+//
+// SEM REDE. Nada aqui consulta blockchain, oráculo ou emissor.
+
+/**
+ * As perguntas, na ordem em que derrubam a tese mais rápido.
+ *
+ * `peso` não é nota: é o tamanho do buraco que a resposta em branco deixa.
+ */
+const PERGUNTAS = [
+  {
+    chave: 'custodiante',
+    pergunta: 'Quem guarda o ativo físico, e isso está registrado onde?',
+    porque: 'sem custodiante nomeado, o token aponta para nada verificável',
+    peso: 'estrutural',
+  },
+  {
+    chave: 'auditoria',
+    pergunta: 'Quem audita a existência do lastro, e com que frequência?',
+    porque: 'lastro auditado uma vez na emissão não é lastro auditado',
+    peso: 'estrutural',
+  },
+  {
+    chave: 'execucao',
+    pergunta: 'Se o emissor quebrar, como o detentor do token executa a garantia?',
+    porque: 'é a pergunta que separa propriedade de promessa — e a que menos se faz',
+    peso: 'estrutural',
+  },
+  {
+    chave: 'jurisdicao',
+    pergunta: 'Sob que jurisdição o lastro é disputado?',
+    porque: 'token global, tribunal local: a execução acontece onde o bem está',
+    peso: 'estrutural',
+  },
+  {
+    chave: 'liquidez',
+    pergunta: 'Existe mercado secundário, ou só a promessa de que haverá?',
+    porque: 'iliquidez não é defeito, mas precificar como líquido o que não é, sim',
+    peso: 'material',
+  },
+  {
+    chave: 'oraculo',
+    pergunta: 'Quem informa o preço do lastro na cadeia, e quem o fiscaliza?',
+    porque: 'o oráculo é um ponto único de confiança dentro de um sistema que se '
+      + 'vende como sem confiança',
+    peso: 'material',
+  },
+];
+
+/**
+ * Avalia o que foi respondido — e, sobretudo, o que não foi.
+ *
+ * Devolve `avaliavel: false` quando falta qualquer pergunta estrutural. **Isso
+ * não é uma nota baixa**, e a distinção é o ponto inteiro do módulo: nota baixa
+ * diz "ruim"; não avaliável diz "não dá para saber", que é outra informação e
+ * costuma ser a verdadeira.
+ */
+function avaliar(respostas = {}) {
+  const respondidas = PERGUNTAS.filter((p) => preenchida(respostas[p.chave]));
+  const faltando = PERGUNTAS.filter((p) => !preenchida(respostas[p.chave]));
+  const estruturaisFaltando = faltando.filter((p) => p.peso === 'estrutural');
+
+  return {
+    respondidas: respondidas.map((p) => p.chave),
+    faltando: faltando.map((p) => ({ chave: p.chave, pergunta: p.pergunta, porque: p.porque })),
+    avaliavel: estruturaisFaltando.length === 0,
+    // sem nota: o módulo não pontua, e o campo explica a ausência
+    nota: null,
+    porqueSemNota: 'Este módulo não pontua RWA. Um número resumiria em uma escala '
+      + 'coisas que não se somam — custódia, auditoria, execução e jurisdição são '
+      + 'perguntas de sim ou não, e uma resposta em branco não vale "meio ponto".',
+    leitura: estruturaisFaltando.length === 0
+      ? 'As perguntas estruturais têm resposta. Conferir se as respostas são '
+        + 'verdadeiras continua sendo trabalho de quem investe.'
+      : `Faltam ${estruturaisFaltando.length} resposta(s) estrutural(is). Isto não `
+        + 'é avaliação ruim: é avaliação impossível com o que há.',
+    aviso: 'Blockchain garante que o token é seu. Não garante que o lastro existe.',
+  };
+}
+
+const preenchida = (v) => typeof v === 'string' && v.trim() !== '';
+/* src/mercado/esg.js */
+// ESG: a pontuação só vale se o critério estiver à vista.
+//
+// Página 15 do Blueprint do Arquiteto — "não é apenas marketing, é dado
+// quantificável".
+//
+// ⚠️ ESSA FRASE SÓ É VERDADE SOB UMA CONDIÇÃO, e ela é o módulo inteiro:
+// **pontuação de sustentabilidade sem critério visível é marketing.** Um número
+// de 0 a 100 chamado "ESG Score" não diz nada sozinho — agências diferentes dão
+// notas diferentes à mesma empresa, com pesos que raramente publicam. Consumir
+// esse número como se fosse medida é o oposto do que a página propõe.
+//
+// Então aqui não existe pontuação embutida. O módulo recebe **os critérios de
+// quem está avaliando**, com os pesos, e faz a aritmética à vista. Quem define
+// o que importa é quem vai investir — e o resultado carrega os critérios usados,
+// para que outra pessoa possa discordar de forma específica.
+//
+// IFRS S1 e S2 (ISSB) entram como o que são: normas de **divulgação**. Elas
+// padronizam o que a empresa conta, não estabelecem nota. A diferença entre
+// "divulga conforme S1/S2" e "é sustentável" é a diferença entre ter a
+// informação e ter o juízo.
+//
+// SEM REDE. Nada é buscado em agência de rating.
+
+/** As normas de divulgação, com o que cada uma cobre — e o que não é. */
+const DIVULGACAO = [
+  {
+    norma: 'IFRS S1',
+    oque: 'divulgação de riscos e oportunidades de sustentabilidade em geral',
+    naoE: 'não é nota, não é selo, não classifica a empresa',
+  },
+  {
+    norma: 'IFRS S2',
+    oque: 'divulgação específica de clima, incluindo emissões',
+    naoE: 'não é nota, não é selo, não classifica a empresa',
+  },
+];
+
+/**
+ * Pontua segundo os critérios de quem avalia — nunca segundo critérios meus.
+ *
+ * `criterios` é uma lista de `{ nome, peso, valor }`, com `valor` de 0 a 1.
+ * Sem critérios, não há nota, e o motivo vem junto.
+ */
+function pontuar(criterios) {
+  if (!Array.isArray(criterios) || criterios.length === 0) {
+    return {
+      nota: null,
+      criterios: [],
+      porqueSemNota: 'Nenhum critério informado. Este módulo não traz pontuação '
+        + 'embutida: pontuação sem critério visível é marketing, e é exatamente '
+        + 'o que a ferramenta recusa ser.',
+      divulgacao: DIVULGACAO,
+    };
+  }
+
+  for (const c of criterios) {
+    if (!c?.nome) throw new TypeError('critério sem nome');
+    if (!Number.isFinite(c.peso) || c.peso <= 0) {
+      throw new RangeError(`critério "${c.nome}" com peso não positivo`);
+    }
+    if (!Number.isFinite(c.valor) || c.valor < 0 || c.valor > 1) {
+      throw new RangeError(`critério "${c.nome}" com valor fora de 0 a 1`);
+    }
+  }
+
+  const pesoTotal = criterios.reduce((s, c) => s + c.peso, 0);
+  const soma = criterios.reduce((s, c) => s + c.valor * c.peso, 0);
+
+  return {
+    nota: Math.round((soma / pesoTotal) * 1000) / 1000,
+    // os critérios voltam INTEIROS no resultado: é o que permite outra pessoa
+    // discordar de forma específica, em vez de discordar do número
+    criterios: criterios.map((c) => ({
+      nome: c.nome,
+      peso: c.peso,
+      valor: c.valor,
+      participacao: Math.round((c.peso / pesoTotal) * 1000) / 1000,
+    })),
+    pesoTotal,
+    divulgacao: DIVULGACAO,
+    leitura: 'Nota calculada com os critérios acima, que são de quem avalia. '
+      + 'Outra pessoa com outros pesos chega a outro número, e isso não é '
+      + 'defeito — é o que torna a nota discutível em vez de oracular.',
+  };
+}
+
+/**
+ * Se a empresa divulga conforme S1 e S2 — que é fato, e não juízo.
+ *
+ * Existe separado de `pontuar` de propósito: divulgar é verificável, ser
+ * sustentável é avaliação. Misturar os dois num campo só é como a informação
+ * vira selo.
+ */
+function divulga({ s1 = false, s2 = false } = {}) {
+  return {
+    s1,
+    s2,
+    completa: s1 && s2,
+    oqueSignifica: 'Divulgar conforme IFRS S1 e S2 significa que a empresa CONTA '
+      + 'certas coisas de um jeito padronizado. Não significa que essas coisas '
+      + 'sejam boas.',
+  };
+}
 /* src/assinatura.js */
 // A assinatura: cada apuração fechada ganha o seu próprio sigilo.
 //
