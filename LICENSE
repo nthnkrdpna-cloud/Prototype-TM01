@@ -1,39 +1,59 @@
-Copyright (c) 2026 Nthnkr "dpna" and AmandaBT. All rights reserved.
+Copyright (c) 2026 Nthnkr "dpna" and AmandaBT.
 
 WHAT THIS COVERS
 
-This repository contains sample output from a generative engine, in three groups, plus the
-accompanying documentation. The groups are treated differently and the difference matters.
+This repository holds two different kinds of thing under one roof, and the difference decides
+what you may do. Read the group your file is in.
 
-  1. SAMPLES — samples/sigils/, samples/sigils-black/, samples/contact-sheet.svg, and the WAV
+  1. CODE — everything under src/ and prova/, plus construir.mjs, package.json and the built
+     index.html. Licensed under the GNU Affero General Public License, version 3.
+     Full text: LICENSE-AGPL-3.0.txt.
+
+  2. SAMPLES — samples/sigils/, samples/sigils-black/, samples/contact-sheet.svg, and the WAV
      files under samples/audio/.
 
-  2. OPEN SET — the 100 SVG files under samples/open-set/. Generated from seeds reserved for
+  3. OPEN SET — the 100 SVG files under samples/open-set/. Generated from seeds reserved for
      publication; they belong to no set offered for sale.
 
-  3. GALLERY — the raster images under samples/gallery/. These DEPICT pieces that are not
+  4. GALLERY — the raster images under samples/gallery/. These DEPICT pieces that are not
      published here and are not licensed by this document. They are provided so the engine's
      output can be seen at scale, for viewing only. No right to use, extract, trace, reproduce
      or redistribute the depicted pieces is granted by their appearance in these images, and no
      such right may be inferred from it.
 
-The engine itself is not published here and is not covered by this license.
+THE CODE — GROUP 1
 
-WHAT YOU MAY DO
+Free software under the AGPL-3.0. You may run it, read it, change it and redistribute it. If you
+modify it and let others use it over a network, the AGPL requires you to offer them your modified
+source as well.
 
-Groups 1 and 2: you may view, download and study these files. You may reference them in
+A separate commercial licence, for anyone who needs this code inside a closed product, is held by
+the authors and available from them. The dual arrangement is deliberate: the tool is open so that
+anyone can use it and check it, while the right to build a closed product on it stays with
+Nthnkr "dpna" and AmandaBT.
+
+THE GENERATIVE ENGINE IS NOT PUBLISHED HERE, and no code in this repository contains it. The tool
+draws no sigils. It selects among the 100 already-published files of the open set, by a
+deterministic code derived from the figures being signed. The engine that produced those files
+remains unpublished and is licensed by no group of this document.
+
+THE ARTWORK — GROUPS 2, 3 AND 4
+
+All rights reserved, with the narrow permissions below.
+
+Groups 2 and 3: you may view, download and study these files. You may reference them in
 commentary, review or discussion of this work, with attribution to Nthnkr "dpna" and AmandaBT and
 a link to this repository.
 
-Group 3: you may view these images and reference them in commentary, review or discussion of this
+Group 4: you may view these images and reference them in commentary, review or discussion of this
 work, on the same attribution terms. Nothing further.
 
 PROVENANCE
 
-Files in groups 1 and 2 carry their origin inside them, in more than one form. Removing the
+Files in groups 2 and 3 carry their origin inside them, in more than one form. Removing the
 visible parts does not make a file anonymous, and does not affect the terms below.
 
-WHAT YOU MAY NOT DO
+WHAT YOU MAY NOT DO WITH THE ARTWORK
 
 These files are published so that the work can be evaluated. They are not published for reuse.
 Without prior written permission you may not:
@@ -47,11 +67,20 @@ Without prior written permission you may not:
 The prohibitions on redistribution, model training and authorship claims are absolute and are not
 lifted by any permission granted for other use.
 
-NO WARRANTY
+These prohibitions bind the artwork only. They do not cut down the AGPL rights you have in the
+code of group 1. A fork of the code that ships without the artwork is entirely permitted; a fork
+that ships the artwork is not.
 
-These files are provided as is, without warranty of any kind. This is a research prototype in
-active development; the samples reflect a state of the work at a moment in time and are not
-guaranteed to be stable, correct or fit for any purpose.
+NO WARRANTY, AND NOT TAX ADVICE
+
+Provided as is, without warranty of any kind. This is a research prototype in active development;
+the samples reflect a state of the work at a moment in time and are not guaranteed to be stable,
+correct or fit for any purpose.
+
+The code in group 1 calculates Brazilian crypto taxation from rules documented in FONTES.md, each
+carrying its source and the date it was last checked. Tax law changes, and the authors are not
+your accountant. Nothing this software produces is tax advice, and responsibility for the figures
+anyone files rests with the person who files them.
 
 CONTACT
 
