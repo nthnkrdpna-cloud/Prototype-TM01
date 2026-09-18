@@ -1,0 +1,39 @@
+Copyright (c) 2026 Nthnkr "dpna" and AmandaBT. All rights reserved.
+
+WHAT THIS COVERS
+
+This repository contains sample output from a generative engine — the SVG files under
+samples/sigils/ and samples/sigils-black/, the contact sheet, and the WAV files under
+samples/audio/ — together with the accompanying documentation.
+
+The engine itself is not published here and is not covered by this license.
+
+WHAT YOU MAY DO
+
+You may view, download and study these samples. You may reference them in commentary, review or
+discussion of this work, with attribution to Nthnkr "dpna" and AmandaBT and a link to this
+repository.
+
+WHAT YOU MAY NOT DO
+
+The samples are published so that the work can be evaluated. They are not published for reuse.
+Without prior written permission you may not:
+
+  - redistribute them, altered or unaltered, as your own work or as part of any collection;
+  - use them in any commercial context, including print, merchandise, tattooing, engraving or
+    client work;
+  - use them as training data for machine learning models of any kind;
+  - register them, or any derivative of them, as a trademark or claim authorship of them.
+
+The prohibitions on redistribution, model training and authorship claims are absolute and are not
+lifted by any permission granted for other use.
+
+NO WARRANTY
+
+These files are provided as is, without warranty of any kind. This is a research prototype in
+active development; the samples reflect a state of the work at a moment in time and are not
+guaranteed to be stable, correct or fit for any purpose.
+
+CONTACT
+
+Open an issue in this repository.
