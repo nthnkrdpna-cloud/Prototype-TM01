@@ -1,16 +1,16 @@
-# Como apoiar o projeto.
+# Como apoiar o projeto. Detalhes e a chave Pix em APOIO.md.
 #
-# ⚠️ OS DOIS CAMPOS ABAIXO ESTÃO EM BRANCO DE PROPÓSITO e só Caio os preenche.
+# `github:` fica em branco de proposito, ate a conta do GitHub Sponsors ser
+# aprovada. Em branco, o botao nativo simplesmente nao aparece — que e melhor
+# que apontar para um link que ainda nao existe.
 #
-#   github  — o handle do GitHub Sponsors, depois de a conta estar aprovada.
-#             Enquanto estiver em branco, o botao nao aparece.
+# ⚠️ O QUE NUNCA ENTRA AQUI, e o motivo e concreto: o codigo Pix copia-e-cola
+# (o "BR Code") NAO e so a chave. Ele e um payload EMV que carrega, em texto
+# claro, o NOME CIVIL COMPLETO do recebedor, a CIDADE e o CEP — e carrega isso
+# independentemente de a chave ser aleatoria ou nao. Colado num arquivo
+# versionado, isso vira dado pessoal publico, indexado e permanente.
 #
-#   custom  — o link do Pix. Uma CHAVE ALEATORIA, nunca CPF, e-mail ou telefone:
-#             o que entra aqui vira arquivo versionado e publico para sempre, e
-#             chave Pix de CPF liga o projeto ao documento de uma pessoa.
-#
-# Ate os dois serem preenchidos, este arquivo nao faz nada — o que e melhor que
-# apontar para um link errado.
+# So a chave aleatoria e publicada, e ela mora em APOIO.md.
 
 github:
-custom:
+custom: ["https://github.com/nthnkrdpna-cloud/Prototype-TM01/blob/main/APOIO.md"]

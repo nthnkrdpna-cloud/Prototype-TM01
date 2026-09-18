@@ -160,10 +160,17 @@ This is free software, built by two people, and it stays free. If it saved you a
 fine, support keeps it maintained — tax rules change, and a calculator nobody updates goes wrong
 quietly.
 
-See [`.github/FUNDING.yml`](.github/FUNDING.yml). Brazil first: GitHub Sponsors and Pix, so
-supporting it does not require an international card.
+**Brazil first: [`APOIO.md`](APOIO.md) has a Pix key**, so supporting this does not require an
+international card — which is the difference between "anyone can support it" and "anyone with a
+Visa can". GitHub Sponsors follows once the account is approved.
 
-**No tiers, no promised features.** Support pays for the rules being kept current.
+**No tiers, no rewards, no promised features.** Tiers create an obligation to ship on a schedule,
+and that is how an honest project turns into a treadmill. The roadmap does not reorder because
+someone paid.
+
+If you would rather not pay: keep using it. The tool counts no users, has no analytics and does
+not know you exist. **Opening an issue when a number is wrong, with the norm beside it, is worth
+more than a month of support** — it fixes the figure for everyone at once.
 
 ---
 
