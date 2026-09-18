@@ -1,0 +1,1486 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apuração de cripto — Prototype-TM01</title>
+<meta name="description" content="Calculadora de imposto de criptoativos para pessoa física no Brasil. Roda no navegador, nada sai da sua máquina.">
+<style>
+/* A folha de estilo não escolhe uma medida sequer.
+ *
+ * Toda dimensão é `var(--eN)`, e essas variáveis são geradas por
+ * `proporcao.js` a partir de φ^(n/2). Se aquele arquivo sumir, esta folha
+ * perde todo o espaçamento — que é exatamente a prova de que as medidas
+ * vêm de lá, e não do olho de quem escreveu.
+ *
+ * As cores não descendem de φ, e dizer que descendem seria mentira: são
+ * escolhidas para contraste legível, e o contraste é medido contra o fundo,
+ * não derivado de proporção. */
+
+:root {
+  color-scheme: light dark;
+  --tinta: #16151a;
+  --fundo: #faf9f7;
+  --papel: #ffffff;
+  --linha: #dedbd4;
+  --fraco: #6b6862;
+  --acento: #3a5a78;
+  --alerta: #8a4b2a;
+  --bom: #2f6146;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tinta: #e8e5df;
+    --fundo: #131316;
+    --papel: #1b1b1f;
+    --linha: #33323a;
+    --fraco: #9a968e;
+    --acento: #8fb4d4;
+    --alerta: #d79a76;
+    --bom: #86c3a2;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: var(--e3);
+  background: var(--fundo);
+  color: var(--tinta);
+  font: var(--e0)/1.618 ui-serif, Georgia, "Times New Roman", serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+main { max-width: 54rem; margin: 0 auto; }
+
+/* ── cabeçalho ─────────────────────────────────────────────── */
+
+header { display: flex; align-items: center; gap: var(--e1); margin-bottom: var(--e3); }
+header img { width: var(--e7); height: var(--e7); flex: none; }
+header h1 { margin: 0; font-size: var(--e3); font-weight: 600; letter-spacing: -0.01em; }
+header p { margin: var(--em4) 0 0; color: var(--fraco); font-size: var(--em1); }
+
+/* ── blocos ────────────────────────────────────────────────── */
+
+section {
+  background: var(--papel);
+  border: 1px solid var(--linha);
+  border-radius: var(--em2);
+  padding: var(--e2);
+  margin-bottom: var(--e2);
+}
+
+h2 { margin: 0 0 var(--e1); font-size: var(--e1); font-weight: 600; }
+h3 { margin: var(--e1) 0 var(--em1); font-size: var(--e0); font-weight: 600; color: var(--fraco); }
+
+textarea {
+  width: 100%;
+  min-height: var(--e10);   /* cabe o exemplo inteiro sem rolar */
+  padding: var(--em1);
+  border: 1px solid var(--linha);
+  border-radius: var(--em3);
+  background: var(--fundo);
+  color: var(--tinta);
+  font: var(--em1)/1.618 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  resize: vertical;
+}
+
+.botoes { display: flex; flex-wrap: wrap; gap: var(--em1); margin-top: var(--e1); }
+
+button {
+  padding: var(--em2) var(--e1);
+  border: 1px solid var(--linha);
+  border-radius: var(--em3);
+  background: var(--fundo);
+  color: var(--tinta);
+  font: inherit;
+  font-size: var(--em1);
+  cursor: pointer;
+}
+button:hover { border-color: var(--acento); color: var(--acento); }
+button.principal { background: var(--acento); border-color: var(--acento); color: var(--papel); }
+button.principal:hover { opacity: 0.88; color: var(--papel); }
+
+/* ── resultado ─────────────────────────────────────────────── */
+
+.mes { border-top: 1px solid var(--linha); padding-top: var(--e1); margin-top: var(--e1); }
+.mes:first-of-type { border-top: 0; margin-top: 0; }
+.mes > h2 { display: flex; justify-content: space-between; align-items: baseline; gap: var(--e1); }
+.mes > h2 small { font-size: var(--em2); font-weight: 400; color: var(--fraco); }
+
+table { width: 100%; border-collapse: collapse; font-size: var(--em1); }
+th, td { padding: var(--em3) 0; text-align: left; vertical-align: baseline; }
+td:last-child, th:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+tr + tr th, tr + tr td { border-top: 1px solid var(--linha); }
+th { font-weight: 400; color: var(--fraco); }
+td strong { font-weight: 600; }
+
+.selo { display: inline-block; padding: var(--em4) var(--em2); border-radius: var(--em4); font-size: var(--em2); }
+.selo.sim { background: color-mix(in srgb, var(--bom) 16%, transparent); color: var(--bom); }
+.selo.nao { background: color-mix(in srgb, var(--alerta) 16%, transparent); color: var(--alerta); }
+
+/* ── avisos ────────────────────────────────────────────────── */
+
+.aviso {
+  border-left: var(--em4) solid var(--alerta);
+  padding: var(--em2) var(--e1);
+  margin: var(--e1) 0;
+  background: color-mix(in srgb, var(--alerta) 7%, transparent);
+  font-size: var(--em1);
+}
+.aviso b { color: var(--alerta); }
+
+.erro {
+  border-left: var(--em4) solid var(--alerta);
+  padding: var(--em2) var(--e1);
+  margin-top: var(--e1);
+  background: color-mix(in srgb, var(--alerta) 10%, transparent);
+  font: var(--em1)/1.618 ui-monospace, Menlo, monospace;
+  white-space: pre-wrap;
+}
+
+/* ── assinatura ────────────────────────────────────────────── */
+
+.assinatura { display: flex; align-items: center; gap: var(--e1); margin-top: var(--e1); }
+.assinatura img { width: var(--e6); height: var(--e6); flex: none; }
+.assinatura div { font-size: var(--em2); color: var(--fraco); }
+.assinatura code { font-size: var(--em1); color: var(--tinta); letter-spacing: 0.08em; }
+
+/* ── rodapé ────────────────────────────────────────────────── */
+
+footer { margin-top: var(--e3); font-size: var(--em2); color: var(--fraco); }
+footer p { margin: var(--em2) 0; }
+a { color: var(--acento); }
+
+@media (max-width: 30rem) {
+  body { padding: var(--e1); }
+  header { flex-wrap: wrap; }
+}
+
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <img src="samples/open-set/OPEN-A-001.svg" alt="">
+  <div>
+    <h1>Apuração de cripto</h1>
+    <p>Custo médio, isenção e DeCripto — no seu navegador, sem enviar nada para lugar nenhum.</p>
+  </div>
+</header>
+
+<section>
+  <h2>Suas operações</h2>
+  <p style="margin-top:0;color:var(--fraco);font-size:var(--em1)">
+    Uma por linha: <code>data tipo ativo quantidade valor custódia</code>.
+    Custódia é <code>nacional</code>, <code>exterior</code> ou <code>autocustodia</code> —
+    e é ela que decide a regra, então não dá para omitir.
+  </p>
+  <textarea id="operacoes" spellcheck="false" autocomplete="off"></textarea>
+  <div class="botoes">
+    <button id="calcular" class="principal" type="button">Calcular</button>
+    <button id="exemplo" type="button">Pôr um exemplo</button>
+    <button id="limpar" type="button">Limpar</button>
+    <button id="csv" type="button">Baixar CSV</button>
+    <button id="json" type="button">Baixar JSON</button>
+  </div>
+</section>
+
+<div id="saida"></div>
+
+<footer>
+  <p><strong>Isto não é orientação tributária.</strong> É uma calculadora: ela aplica as regras
+  que estão em <a href="FONTES.md">FONTES.md</a>, com a norma e a data de cada uma. Quem decide
+  o seu caso é o seu contador, e a conferência dos valores é sua.</p>
+
+  <p><strong>Nada sai da sua máquina.</strong> A página não faz requisição nenhuma: não busca
+  cotação, não tem análise de uso, não tem fonte externa. O que você colar aqui fica aqui.
+  Dá para conferir — abra o painel de rede do navegador e calcule.</p>
+
+  <p><strong>A ferramenta não diz quando vender.</strong> Ela mostra o que aconteceu e quanto
+  falta do limite. Sugerir operação seria aconselhar, e não é isso que ela é.</p>
+
+  <p>Prototype-TM01, de <strong>Nthnkr “dpna”</strong> e <strong>AmandaBT</strong> ·
+  <a href="README.md">o projeto</a> · <a href="ROADMAP.md">o que vem depois</a> ·
+  <a href="LICENSE">licença</a></p>
+</footer>
+
+</main>
+<script>
+(function(){
+"use strict";
+globalThis.__CATALOGO__ = ["OPEN-A-001","OPEN-A-002","OPEN-A-003","OPEN-A-004","OPEN-A-005","OPEN-A-006","OPEN-A-007","OPEN-A-008","OPEN-A-009","OPEN-A-010","OPEN-A-011","OPEN-A-012","OPEN-A-013","OPEN-A-014","OPEN-A-015","OPEN-A-016","OPEN-A-017","OPEN-A-018","OPEN-A-019","OPEN-A-020","OPEN-A-021","OPEN-A-022","OPEN-A-023","OPEN-A-024","OPEN-A-025","OPEN-A-026","OPEN-A-027","OPEN-A-028","OPEN-A-029","OPEN-A-030","OPEN-A-031","OPEN-A-032","OPEN-A-033","OPEN-A-034","OPEN-B-001","OPEN-B-002","OPEN-B-003","OPEN-B-004","OPEN-B-005","OPEN-B-006","OPEN-B-007","OPEN-B-008","OPEN-B-009","OPEN-B-010","OPEN-B-011","OPEN-B-012","OPEN-B-013","OPEN-B-014","OPEN-B-015","OPEN-B-016","OPEN-B-017","OPEN-B-018","OPEN-B-019","OPEN-B-020","OPEN-B-021","OPEN-B-022","OPEN-B-023","OPEN-B-024","OPEN-B-025","OPEN-B-026","OPEN-B-027","OPEN-B-028","OPEN-B-029","OPEN-B-030","OPEN-B-031","OPEN-B-032","OPEN-B-033","OPEN-C-001","OPEN-C-002","OPEN-C-003","OPEN-C-004","OPEN-C-005","OPEN-C-006","OPEN-C-007","OPEN-C-008","OPEN-C-009","OPEN-C-010","OPEN-C-011","OPEN-C-012","OPEN-C-013","OPEN-C-014","OPEN-C-015","OPEN-C-016","OPEN-C-017","OPEN-C-018","OPEN-C-019","OPEN-C-020","OPEN-C-021","OPEN-C-022","OPEN-C-023","OPEN-C-024","OPEN-C-025","OPEN-C-026","OPEN-C-027","OPEN-C-028","OPEN-C-029","OPEN-C-030","OPEN-C-031","OPEN-C-032","OPEN-C-033"];
+/* src/ui/proporcao.js */
+// A régua. Nenhuma medida desta interface é escolhida a olho.
+//
+// φ = (1 + √5) / 2. Toda dimensão sai de `escala(n) = φ^(n/2)`, e o passo é
+// meio expoente porque φ inteiro cresce rápido demais para tipografia: de 16px
+// para 26px num degrau só não dá sub-título, dá salto. A raiz de φ (≈1,272) dá
+// a escada que falta.
+//
+// É o PASSO 1 da especificação — "layouts, paddings, tipografia, dimensões e
+// eixos calculados com base na Proporção Áurea" — e é a única parte dela que
+// não precisou ser inventada: a mesma régua já existia no projeto maior.
+//
+// ⚠️ O QUE ISTO NÃO PROVA. Olhando um número solto — 20,6px — ninguém deduz que
+// ele é `16 × φ^(1/2)`. A derivação não é recuperável de fora. Isto é uma regra
+// de projeto que nós cumprimos, não uma propriedade verificável por terceiros,
+// e dizer o contrário seria vender o que não se entrega.
+
+const PHI = (1 + Math.sqrt(5)) / 2;   // 1.618033988749895
+
+/** O corpo de texto, em px. Tudo cresce e diminui a partir daqui. */
+const BASE = 16;
+
+/** φ^(n/2). `escala(0) = 1`, `escala(2) = φ`, `escala(-2) = 1/φ`. */
+const escala = (n) => PHI ** (n / 2);
+
+/** Uma medida em px, arredondada ao décimo — abaixo disso a tela não mostra. */
+const px = (n) => Math.round(BASE * escala(n) * 10) / 10;
+
+/** Os degraus que a interface usa. Fora desta lista, não existe medida. */
+const DEGRAUS = [-4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+/**
+ * As variáveis CSS, geradas a partir da régua.
+ *
+ * O CSS não sabe calcular φ, então quem calcula é isto, e o CSS só consome. É o
+ * que torna "toda medida vem de φ" uma afirmação conferível: some esta função,
+ * some toda medida da página.
+ */
+function variaveis() {
+  const linhas = DEGRAUS.map((n) => `  --e${n < 0 ? `m${-n}` : n}: ${px(n)}px;`);
+  return `:root{\n${linhas.join('\n')}\n  --phi: ${PHI};\n}`;
+}
+
+/** O nome da variável de um degrau, para quem monta estilo em JS. */
+const varDe = (n) => `var(--e${n < 0 ? `m${-n}` : n})`;
+/* src/nucleo/dinheiro.js */
+// Dinheiro em centavos inteiros, e quantidade em unidades escaladas.
+//
+// POR QUE NÃO USAR NÚMERO COM VÍRGULA. `0.1 + 0.2` vale `0.30000000000000004`.
+// Numa tela isso é um detalhe; numa apuração de imposto, é um centavo que
+// aparece do nada e não fecha com o relatório da corretora. Pior: o erro se acumula a cada
+// operação, e o mês fecha errado sem ninguém ver onde.
+//
+// Então dinheiro aqui é SEMPRE `int` de centavos, e quantidade é SEMPRE `int`
+// de unidades escaladas por 1e8. A vírgula só existe na borda: entra em
+// `emCentavos`, sai em `formatarBRL`. No meio do cálculo ela não existe.
+//
+// LIMITE, medido e não suposto: `Number.MAX_SAFE_INTEGER` é 9.007.199.254.740.991.
+// Em centavos, isso são 90 trilhões de reais. Em unidades escaladas, 90 milhões
+// de moedas. Passou disso, `emCentavos` e `emUnidades` recusam em vez de
+// arredondar em silêncio — porque silêncio aqui é o dano.
+
+/** Casas decimais da quantidade. 8 é o padrão do Bitcoin, e cobre o resto. */
+const CASAS_QUANTIDADE = 8;
+const ESCALA_QUANTIDADE = 10 ** CASAS_QUANTIDADE;
+
+const TETO = Number.MAX_SAFE_INTEGER;
+
+// O que se joga fora antes de ler o número. O espaço-duro (U+00A0) está aqui
+// porque é o que vem colado quando alguém copia valor de uma página web, e ele
+// NÃO é \s em toda situação — sem tirá-lo, "R$ 1.234,56" com espaço-duro vira
+// entrada não reconhecida.
+//
+// Escrito como escape e não como caractere literal: espaço-duro dentro de um
+// arquivo-fonte é invisível, e ninguém revisa o que não vê.
+const ESPACO_DURO = String.fromCharCode(0xA0);
+const LIXO_DE_VALOR = new RegExp("[R$\\s" + ESPACO_DURO + "]", "g");
+const LIXO_DE_QUANTIDADE = new RegExp("[\\s" + ESPACO_DURO + "]", "g");
+
+/**
+ * Texto ou número → centavos inteiros.
+ *
+ * Aceita o que uma pessoa cola de um relatório brasileiro: `1.234,56`,
+ * `R$ 1.234,56`, `1234.56`, `1234,56`. A ambiguidade real é o ponto: em
+ * `1.234` ele é separador de milhar, em `1.23` é decimal. A regra usada é a
+ * que não erra nos dois casos: **o último separador manda**, e ponto só é
+ * milhar se vier seguido de exatamente três dígitos e houver vírgula depois.
+ */
+function emCentavos(entrada) {
+  if (typeof entrada === 'number') {
+    if (!Number.isFinite(entrada)) throw new TypeError('valor não é um número finito');
+    return travar(Math.round(entrada * 100), 'valor');
+  }
+  const limpo = String(entrada).replace(LIXO_DE_VALOR, '');
+  if (limpo === '') throw new TypeError('valor vazio');
+
+  const temVirgula = limpo.includes(',');
+  const normal = temVirgula
+    ? limpo.replace(/\./g, '').replace(',', '.')  // 1.234,56 → 1234.56
+    : limpo;                                       // 1234.56 fica como está
+
+  if (!/^-?\d*\.?\d*$/.test(normal) || !/\d/.test(normal)) {
+    throw new TypeError(`valor não reconhecido: ${entrada}`);
+  }
+  return travar(Math.round(Number(normal) * 100), 'valor');
+}
+
+/** Texto ou número → unidades escaladas por 1e8. Mesmas regras de separador. */
+function emUnidades(entrada) {
+  if (typeof entrada === 'number') {
+    if (!Number.isFinite(entrada)) throw new TypeError('quantidade não é um número finito');
+    return travar(Math.round(entrada * ESCALA_QUANTIDADE), 'quantidade');
+  }
+  const limpo = String(entrada).replace(LIXO_DE_QUANTIDADE, '');
+  if (limpo === '') throw new TypeError('quantidade vazia');
+  const normal = limpo.includes(',')
+    ? limpo.replace(/\./g, '').replace(',', '.')
+    : limpo;
+  if (!/^-?\d*\.?\d*$/.test(normal) || !/\d/.test(normal)) {
+    throw new TypeError(`quantidade não reconhecida: ${entrada}`);
+  }
+  return travar(Math.round(Number(normal) * ESCALA_QUANTIDADE), 'quantidade');
+}
+
+function travar(n, oque) {
+  if (!Number.isFinite(n)) throw new TypeError(`${oque} não é finito`);
+  if (Math.abs(n) > TETO) throw new RangeError(`${oque} grande demais para ser exato`);
+  return n;
+}
+
+/**
+ * Parte proporcional de um total, arredondada ao centavo.
+ *
+ * É a conta do custo de uma venda parcial: `custoTotal * vendida / possuída`.
+ * Feita em uma linha só, sem materializar o custo médio unitário, porque
+ * arredondar o unitário e depois multiplicar erra mais que multiplicar e
+ * depois arredondar.
+ */
+function proporcao(total, parte, todo) {
+  if (todo === 0) return 0;
+  return Math.round((total * parte) / todo);
+}
+
+/** Centavos → `R$ 1.234,56`. Só para a tela. */
+function formatarBRL(centavos) {
+  const negativo = centavos < 0;
+  const inteiro = Math.floor(Math.abs(centavos) / 100);
+  const resto = String(Math.abs(centavos) % 100).padStart(2, '0');
+  const comPontos = String(inteiro).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${negativo ? '-' : ''}R$ ${comPontos},${resto}`;
+}
+
+/** Unidades escaladas → texto, sem zeros à toa no fim. */
+function formatarQuantidade(unidades) {
+  const negativo = unidades < 0;
+  const abs = Math.abs(unidades);
+  const inteiro = Math.floor(abs / ESCALA_QUANTIDADE);
+  const fracao = String(abs % ESCALA_QUANTIDADE)
+    .padStart(CASAS_QUANTIDADE, '0')
+    .replace(/0+$/, '');
+  return `${negativo ? '-' : ''}${inteiro}${fracao ? `,${fracao}` : ''}`;
+}
+/* src/nucleo/periodo.js */
+// Agrupar por mês e por ano. Sem país, sem imposto — só calendário.
+//
+// A data entra como `AAAA-MM-DD`, e é assim por um motivo: ordenar texto nesse
+// formato dá a mesma ordem que ordenar data, e `AAAA-MM` sai com um corte de
+// string. Nenhum `Date` é construído aqui, e isso evita o problema clássico —
+// `new Date('2026-09-18')` é meia-noite UTC, que no Brasil é dia 17. Um mês
+// inteiro migraria de lugar na virada.
+
+const FORMATO = /^\d{4}-\d{2}-\d{2}$/;
+
+function exigirData(d) {
+  if (!FORMATO.test(d)) {
+    throw new RangeError(`data fora do formato AAAA-MM-DD: ${d}`);
+  }
+  const [ano, mes, dia] = d.split('-').map(Number);
+  if (mes < 1 || mes > 12) throw new RangeError(`mês inválido em ${d}`);
+  if (dia < 1 || dia > diasNoMes(ano, mes)) throw new RangeError(`dia inválido em ${d}`);
+  return d;
+}
+
+const diasNoMes = (ano, mes) => new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+
+/** `2026-09-18` → `2026-09` */
+const mesDe = (data) => exigirData(data).slice(0, 7);
+
+/** `2026-09-18` → `2026` */
+const anoDe = (data) => exigirData(data).slice(0, 4);
+
+/**
+ * Agrupa eventos por uma chave de calendário, em ordem crescente.
+ *
+ * Devolve `Map` e não objeto: `Map` preserva a ordem de inserção para chaves
+ * de texto, objeto não garante o mesmo para toda chave. Com mês em texto o
+ * risco é teórico, mas a garantia sai de graça.
+ */
+function agrupar(eventos, chave = mesDe) {
+  const grupos = new Map();
+  for (const e of [...eventos].sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0))) {
+    const k = chave(e.data);
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k).push(e);
+  }
+  return grupos;
+}
+
+const porMes = (eventos) => agrupar(eventos, mesDe);
+const porAno = (eventos) => agrupar(eventos, anoDe);
+/* src/nucleo/carteira.js */
+// A carteira: custo médio por ativo, por lugar onde o ativo está.
+//
+// POR QUE O CUSTO É POR (ATIVO, CUSTÓDIA), e não só por ativo. Os dois regimes
+// tributários — o nacional e o do exterior — são apurados separados. Se o custo
+// fosse um só, uma compra no exterior rebaixaria o custo médio do que está aqui,
+// e a apuração nacional sairia com ganho inflado. São caixas diferentes porque
+// a lei os trata como caixas diferentes.
+//
+// E POR QUE TRANSFERÊNCIA NÃO É VENDA. Tirar da exchange e mandar para a
+// carteira própria não realiza ganho nenhum — não houve alienação. Mas o custo
+// tem de ir junto com a moeda, senão o custo fica onde a moeda não está e a
+// venda futura apura errado. Por isso `transferir` move quantidade E custo, na
+// proporção exata, e devolve ganho zero.
+//
+// O que este módulo NÃO faz: não sabe de imposto, não sabe de isenção, não sabe
+// de país. Ele responde "quanto custou o que você vendeu". O resto é `fiscal/`.
+
+/** Onde o ativo está. A custódia é estrutura, não etiqueta — ver FONTES.md §2. */
+const CUSTODIAS = ['nacional', 'exterior', 'autocustodia'];
+
+// Byte zero como separador da chave: o código do ativo vem do que a pessoa
+// digitou e pode conter quase qualquer coisa, então um separador comum ('|',
+// ':') poderia aparecer dentro dele e colar duas posições diferentes numa só.
+// Escrito por código, não como caractere literal, para o arquivo não virar
+// binário aos olhos do git e do grep.
+const SEPARADOR_DE_CHAVE = String.fromCharCode(0);
+const chave = (ativo, custodia) => ativo + SEPARADOR_DE_CHAVE + custodia;
+
+function novaCarteira() {
+  return { posicoes: new Map() };
+}
+
+function posicao(carteira, ativo, custodia) {
+  const k = chave(ativo, custodia);
+  let p = carteira.posicoes.get(k);
+  if (!p) {
+    p = { ativo, custodia, quantidade: 0, custoTotal: 0 };
+    carteira.posicoes.set(k, p);
+  }
+  return p;
+}
+
+/**
+ * Compra: soma quantidade e soma custo.
+ *
+ * A taxa entra no custo, e isso não é escolha estética: a taxa paga para
+ * adquirir faz parte do custo de aquisição, então ela reduz o ganho lá na
+ * frente. Quem não somar a taxa paga imposto sobre ela.
+ */
+function comprar(carteira, { ativo, custodia, quantidade, valor, taxa = 0 }) {
+  exigirCustodia(custodia);
+  if (quantidade <= 0) throw new RangeError('compra com quantidade não positiva');
+  const p = posicao(carteira, ativo, custodia);
+  p.quantidade += quantidade;
+  p.custoTotal += valor + taxa;
+  return p;
+}
+
+/**
+ * Venda: devolve o custo da parte vendida e o ganho.
+ *
+ * A taxa de venda sai do valor recebido — também não é escolha: o ganho é o
+ * que entrou no bolso, e a corretora ficou com a taxa.
+ */
+function vender(carteira, { ativo, custodia, quantidade, valor, taxa = 0 }) {
+  exigirCustodia(custodia);
+  if (quantidade <= 0) throw new RangeError('venda com quantidade não positiva');
+  const p = posicao(carteira, ativo, custodia);
+  if (quantidade > p.quantidade) {
+    throw new RangeError(
+      `venda de ${ativo} maior que a posição em ${custodia}: ` +
+      `${quantidade} pedidos, ${p.quantidade} disponíveis`,
+    );
+  }
+
+  const custo = proporcao(p.custoTotal, quantidade, p.quantidade);
+  p.quantidade -= quantidade;
+  p.custoTotal -= custo;
+  // zera resíduo: sem isto, sobra um centavo de custo numa posição vazia, e ele
+  // reaparece como prejuízo fantasma na próxima compra do mesmo ativo
+  if (p.quantidade === 0) p.custoTotal = 0;
+
+  const liquido = valor - taxa;
+  return { custo, liquido, ganho: liquido - custo };
+}
+
+/**
+ * Transferência entre custódias. Move moeda e custo juntos. Ganho: nenhum.
+ *
+ * Isto existe porque o caso é comum e o erro é caro: quem compra na exchange
+ * nacional, manda para a carteira fria e vende lá na frente teria, sem isto,
+ * uma venda sem custo — ou seja, ganho igual ao valor inteiro.
+ */
+function transferir(carteira, { ativo, de, para, quantidade }) {
+  exigirCustodia(de);
+  exigirCustodia(para);
+  if (de === para) throw new RangeError('transferência para a mesma custódia');
+  if (quantidade <= 0) throw new RangeError('transferência com quantidade não positiva');
+
+  const origem = posicao(carteira, ativo, de);
+  if (quantidade > origem.quantidade) {
+    throw new RangeError(
+      `transferência de ${ativo} maior que a posição em ${de}: ` +
+      `${quantidade} pedidos, ${origem.quantidade} disponíveis`,
+    );
+  }
+  const custo = proporcao(origem.custoTotal, quantidade, origem.quantidade);
+  origem.quantidade -= quantidade;
+  origem.custoTotal -= custo;
+  if (origem.quantidade === 0) origem.custoTotal = 0;
+
+  const destino = posicao(carteira, ativo, para);
+  destino.quantidade += quantidade;
+  destino.custoTotal += custo;
+  return { custo, ganho: 0 };
+}
+
+/** A posição de um ativo num lugar. Só leitura. */
+function saldo(carteira, ativo, custodia) {
+  const p = carteira.posicoes.get(chave(ativo, custodia));
+  return p
+    ? { ativo, custodia, quantidade: p.quantidade, custoTotal: p.custoTotal }
+    : { ativo, custodia, quantidade: 0, custoTotal: 0 };
+}
+
+/** Tudo que a carteira tem, sem as posições zeradas. */
+function posicoes(carteira) {
+  return [...carteira.posicoes.values()]
+    .filter((p) => p.quantidade > 0)
+    .map((p) => ({ ...p }));
+}
+
+function exigirCustodia(c) {
+  if (!CUSTODIAS.includes(c)) {
+    throw new RangeError(`custódia desconhecida: ${c}. Use uma de ${CUSTODIAS.join(', ')}`);
+  }
+}
+/* src/nucleo/entrada.js */
+// Ler o que a pessoa digitou ou colou.
+//
+// A ferramenta só é de "absorção rápida" se a entrada for. Então o formato é
+// uma linha por operação, separada por vírgula ou por espaço, e o cabeçalho é
+// opcional:
+//
+//   2026-09-15  venda  BTC  0,5  30.000,00  nacional
+//   2026-09-01,compra,BTC,0.5,10000,nacional
+//   2026-09-20  transferencia  BTC  0,25  nacional  autocustodia
+//
+// REGRA DE OURO DESTE ARQUIVO: **erro de digitação vira mensagem, nunca
+// silêncio.** Uma linha que não dá para ler não é pulada — ela para a
+// importação e diz o número da linha. Uma calculadora de imposto que descarta
+// a linha que não entendeu produz um total menor e igualmente convincente.
+
+const TIPOS = ['compra', 'venda', 'transferencia'];
+
+/** Sinônimos que uma pessoa real escreve. O resto é recusado. */
+const APELIDOS = {
+  compra: 'compra', comprar: 'compra', buy: 'compra', c: 'compra',
+  venda: 'venda', vender: 'venda', sell: 'venda', v: 'venda',
+  transferencia: 'transferencia', transferência: 'transferencia',
+  transfer: 'transferencia', envio: 'transferencia', t: 'transferencia',
+};
+
+const CUSTODIA_APELIDOS = {
+  nacional: 'nacional', br: 'nacional', brasil: 'nacional', n: 'nacional',
+  exterior: 'exterior', estrangeira: 'exterior', fora: 'exterior', e: 'exterior',
+  autocustodia: 'autocustodia', autocustódia: 'autocustodia',
+  carteira: 'autocustodia', wallet: 'autocustodia', propria: 'autocustodia', a: 'autocustodia',
+};
+
+class LinhaIlegivel extends Error {
+  constructor(numero, linha, motivo) {
+    super(`linha ${numero}: ${motivo}\n  ${linha}`);
+    this.name = 'LinhaIlegivel';
+    this.numero = numero;
+    this.linha = linha;
+    this.motivo = motivo;
+  }
+}
+
+/** Texto inteiro → lista de operações. Para na primeira linha ilegível. */
+function ler(texto) {
+  const operacoes = [];
+  const linhas = String(texto).split(/\r?\n/);
+
+  linhas.forEach((bruta, i) => {
+    const linha = bruta.trim();
+    if (linha === '' || linha.startsWith('#')) return;
+    if (/^data[,;\s]/i.test(linha)) return;  // cabeçalho de CSV
+    operacoes.push(lerLinha(linha, i + 1));
+  });
+
+  return operacoes;
+}
+
+/**
+ * Separar uma linha em campos — e a vírgula é o problema.
+ *
+ * No Brasil a vírgula é o separador DECIMAL (`0,5`) e também o separador de
+ * CSV. Partir por vírgula sem pensar transforma `0,5` em dois campos, e o
+ * resultado é "quantidade zero" numa linha perfeitamente válida. Foi o que
+ * aconteceu na primeira versão deste arquivo, e os testes pegaram.
+ *
+ * A regra, em ordem, e a primeira que der ao menos 5 campos ganha:
+ *
+ *   1. ponto-e-vírgula ou tabulação — quem usa isso já resolveu a ambiguidade;
+ *   2. espaço em branco — aí a vírgula sobrante é decimal, e fica onde está;
+ *   3. vírgula — é CSV de verdade, com ponto decimal.
+ *
+ * ⚠️ O caso que continua ambíguo, e que é ambíguo mesmo: CSV separado por
+ * vírgula com decimal por vírgula (`BTC,0,5,30000`). Não existe leitura certa
+ * — nem para uma pessoa. Cai na regra 3, sai com um campo a mais, e a linha é
+ * recusada com o número dela. Recusar é melhor que adivinhar: use `;` ou
+ * espaço.
+ */
+function separar(linha) {
+  for (const re of [/[;\t]/, /\s+/, /,/]) {
+    const campos = linha.split(re).map((c) => c.trim()).filter((c) => c !== '');
+    if (campos.length >= 5) return campos;
+  }
+  return linha.split(/[;\t,]|\s+/).map((c) => c.trim()).filter((c) => c !== '');
+}
+
+function lerLinha(linha, numero = 1) {
+  const campos = separar(linha);
+
+  if (campos.length < 5) {
+    throw new LinhaIlegivel(numero, linha, `esperava ao menos 5 campos, achei ${campos.length}`);
+  }
+
+  const [data, tipoBruto, ativo, ...resto] = campos;
+
+  try {
+    exigirData(data);
+  } catch (e) {
+    throw new LinhaIlegivel(numero, linha, `data: ${e.message}`);
+  }
+
+  const tipo = APELIDOS[tipoBruto.toLowerCase()];
+  if (!tipo) {
+    throw new LinhaIlegivel(numero, linha, `tipo desconhecido: "${tipoBruto}". Use ${TIPOS.join(', ')}`);
+  }
+
+  if (tipo === 'transferencia') {
+    // data tipo ativo quantidade de para
+    const [qtd, deBruto, paraBruto] = resto;
+    if (!deBruto || !paraBruto) {
+      throw new LinhaIlegivel(numero, linha, 'transferência precisa de origem e destino');
+    }
+    return {
+      tipo, data, ativo: ativo.toUpperCase(),
+      quantidade: quantidade(qtd, numero, linha),
+      de: custodia(deBruto, numero, linha),
+      para: custodia(paraBruto, numero, linha),
+    };
+  }
+
+  // data tipo ativo quantidade valor custodia [taxa]
+  const [qtd, valor, custBruta, taxa] = resto;
+  if (!custBruta) {
+    throw new LinhaIlegivel(numero, linha, 'falta a custódia (nacional, exterior ou autocustodia)');
+  }
+
+  return {
+    tipo, data, ativo: ativo.toUpperCase(),
+    quantidade: quantidade(qtd, numero, linha),
+    valor: dinheiro(valor, numero, linha, 'valor'),
+    custodia: custodia(custBruta, numero, linha),
+    ...(taxa === undefined ? {} : { taxa: dinheiro(taxa, numero, linha, 'taxa') }),
+  };
+}
+
+function quantidade(texto, numero, linha) {
+  let q;
+  try {
+    q = emUnidades(texto);
+  } catch (e) {
+    throw new LinhaIlegivel(numero, linha, `quantidade: ${e.message}`);
+  }
+  if (q <= 0) throw new LinhaIlegivel(numero, linha, 'quantidade tem de ser maior que zero');
+  return q;
+}
+
+function dinheiro(texto, numero, linha, nome) {
+  let v;
+  try {
+    v = emCentavos(texto);
+  } catch (e) {
+    throw new LinhaIlegivel(numero, linha, `${nome}: ${e.message}`);
+  }
+  if (v < 0) throw new LinhaIlegivel(numero, linha, `${nome} não pode ser negativo`);
+  return v;
+}
+
+function custodia(texto, numero, linha) {
+  const c = CUSTODIA_APELIDOS[texto.toLowerCase()];
+  if (!c) {
+    throw new LinhaIlegivel(
+      numero, linha,
+      `custódia desconhecida: "${texto}". Use ${CUSTODIAS.join(', ')}`,
+    );
+  }
+  return c;
+}
+
+/** O exemplo que a página oferece. Cobre os três regimes e a transferência. */
+const EXEMPLO = [
+  '# data        tipo           ativo  quantidade  valor       custódia',
+  '2026-09-01    compra         BTC    0,5         150.000,00  nacional',
+  '2026-09-05    compra         ETH    2           40.000,00   exterior',
+  '2026-09-10    transferencia  BTC    0,2         nacional    autocustodia',
+  '2026-09-15    venda          BTC    0,2         70.000,00   autocustodia',
+  '2026-09-20    venda          ETH    1           25.000,00   exterior',
+].join('\n');
+/* src/nucleo/apuracao.js */
+// Roda a lista de operações pela carteira e devolve o que aconteceu.
+//
+// Puro e sem país: aqui não existe isenção, alíquota nem declaração. Este
+// módulo responde "o que foi vendido, quanto custou e quanto sobrou". Quem
+// transforma isso em imposto é `fiscal/`.
+//
+// ORDEM IMPORTA, e importa muito. Custo médio é histórico: vender antes de
+// comprar não é a mesma coisa que comprar antes de vender. Por isso as
+// operações são ordenadas por data antes de rodar, e por isso o empate de data
+// mantém a ordem em que a pessoa digitou — se ela listou a compra antes da
+// venda no mesmo dia, foi isso que aconteceu, e inverter por conta própria
+// inventaria um estouro de posição que não existiu.
+
+/**
+ * Executa as operações e devolve um evento por operação.
+ *
+ * Cada evento carrega o que a operação realizou, para que nada depois precise
+ * recalcular custo — recalcular é onde dois números divergem.
+ */
+function apurar(operacoes) {
+  const carteira = novaCarteira();
+  const eventos = [];
+
+  for (const op of ordenar(operacoes)) {
+    switch (op.tipo) {
+      case 'compra': {
+        comprar(carteira, op);
+        eventos.push({ ...op, custo: op.valor + (op.taxa ?? 0), ganho: 0 });
+        break;
+      }
+      case 'venda': {
+        const r = vender(carteira, op);
+        eventos.push({ ...op, custo: r.custo, liquido: r.liquido, ganho: r.ganho });
+        break;
+      }
+      case 'transferencia': {
+        const r = transferir(carteira, op);
+        // custo vai junto porque a DeCripto conta transferência pelo valor
+        // movimentado, e o custo é o único valor real que ela tem
+        eventos.push({ ...op, custo: r.custo, ganho: 0 });
+        break;
+      }
+      default:
+        throw new RangeError(`tipo de operação desconhecido: ${op.tipo}`);
+    }
+  }
+
+  return { eventos, carteira };
+}
+
+/**
+ * Por data, e estável no empate.
+ *
+ * `Array.prototype.sort` já é estável desde o ES2019, mas a estabilidade aqui
+ * é requisito, não detalhe de implementação — então está escrita.
+ */
+function ordenar(operacoes) {
+  return operacoes
+    .map((op, i) => ({ op, i }))
+    .sort((a, b) => (a.op.data < b.op.data ? -1 : a.op.data > b.op.data ? 1 : a.i - b.i))
+    .map(({ op }) => op);
+}
+
+/** Só as vendas. É o que a apuração de imposto olha. */
+const vendas = (eventos) => eventos.filter((e) => e.tipo === 'venda');
+/* src/fiscal/br/regime.js */
+// Onde o ativo estava → qual regime tributário se aplica.
+//
+// Este arquivo é pequeno e é o mais perigoso do projeto. Ele é o único lugar
+// onde "custódia" vira "regime", e um erro aqui não aparece como erro: aparece
+// como um número plausível e errado.
+//
+// Cada linha abaixo diz se é FATO (está na norma) ou INTERPRETAÇÃO (é leitura,
+// e existe divergência). A tela mostra qual interpretação usou. Ver FONTES.md.
+
+/** Os dois regimes. Não há um terceiro. */
+const REGIME = {
+  NACIONAL: 'nacional',   // Lei 9.250/1995 art. 22 — isenção mensal de R$ 35.000
+  EXTERIOR: 'exterior',   // Lei 14.754/2023 — 15%, sem isenção mensal
+};
+
+/**
+ * O mapa, com a marca de cada linha.
+ *
+ * `autocustodia` é a única que não é fato. A Lei 14.754/2023 alcança
+ * *aplicações financeiras no exterior*; cripto na carteira própria não é
+ * aplicação, nem está no exterior por estar fora de exchange. A leitura
+ * corrente é que segue o regime geral — e portanto a isenção do art. 22 vale.
+ *
+ * Há tributarista que discorda. Por isso está marcado, e por isso a tela diz.
+ */
+const MAPA = {
+  nacional:     { regime: REGIME.NACIONAL, certeza: 'fato' },
+  exterior:     { regime: REGIME.EXTERIOR, certeza: 'fato' },
+  autocustodia: { regime: REGIME.NACIONAL, certeza: 'interpretacao' },
+};
+
+function regimeDe(custodia) {
+  const m = MAPA[custodia];
+  if (!m) throw new RangeError(`custódia sem regime definido: ${custodia}`);
+  return m.regime;
+}
+
+/** `'fato'` ou `'interpretacao'` — para a tela avisar quando for o segundo. */
+function certezaDe(custodia) {
+  const m = MAPA[custodia];
+  if (!m) throw new RangeError(`custódia sem regime definido: ${custodia}`);
+  return m.certeza;
+}
+
+/** As custódias cujo regime é interpretação, não fato. A tela lista estas. */
+const INTERPRETADAS = Object.keys(MAPA).filter((c) => MAPA[c].certeza === 'interpretacao');
+/* src/fiscal/br/isencao.js */
+// Isenção mensal de bens de pequeno valor.
+//
+// Lei nº 9.250/1995, art. 22, inciso II — ver FONTES.md §1.
+//
+// TRÊS COISAS QUE ESTA REGRA NÃO É, e que erram quem lê rápido:
+//
+//   1. Não é sobre o ganho. É sobre o VALOR ALIENADO. Vender R$ 40.000 com
+//      R$ 100 de lucro não é isento — passou do teto, e o ganho inteiro é
+//      tributado, não só o que excedeu.
+//   2. Não é por operação. É o SOMATÓRIO do mês. Três vendas de R$ 15.000 no
+//      mesmo mês somam R$ 45.000 e nenhuma delas é isenta.
+//   3. Não vale no exterior. Ver `exterior.js`, e FONTES.md §2.
+//
+// E não é o mesmo R$ 35.000 da DeCripto. Ver `decripto.js`.
+
+/** Lei 9.250/1995, art. 22, II. Em centavos. */
+const TETO_ISENCAO = 3_500_000;
+
+/**
+ * Aplica a isenção ao apurado de um mês, no regime nacional.
+ *
+ * Recebe as vendas já com ganho calculado; devolve o que é isento, o que é
+ * tributável, e quanto ainda cabe no teto.
+ *
+ * O ganho negativo (prejuízo) não vira imposto nem quando o teto estoura —
+ * imposto sobre ganho de capital não tem base negativa. O prejuízo aparece
+ * separado porque a pessoa precisa vê-lo, mas não compensa ganho de capital de
+ * mês nenhum: não existe compensação de prejuízo em ganho de capital de bens.
+ */
+function aplicarIsencao(vendas) {
+  const nacionais = vendas.filter((v) => v.regime === REGIME.NACIONAL);
+
+  const alienado = nacionais.reduce((s, v) => s + v.valor, 0);
+  const isento = alienado <= TETO_ISENCAO;
+
+  const ganhos = nacionais.filter((v) => v.ganho > 0).reduce((s, v) => s + v.ganho, 0);
+  const prejuizos = nacionais.filter((v) => v.ganho < 0).reduce((s, v) => s + v.ganho, 0);
+
+  return {
+    regime: REGIME.NACIONAL,
+    alienado,
+    teto: TETO_ISENCAO,
+    isento,
+    folga: Math.max(0, TETO_ISENCAO - alienado),
+    excedente: Math.max(0, alienado - TETO_ISENCAO),
+    ganhoBruto: ganhos,
+    prejuizo: prejuizos,
+    // quando isento, a base é zero mesmo havendo ganho — é esse o benefício
+    baseTributavel: isento ? 0 : ganhos,
+    fonte: 'Lei 9.250/1995, art. 22, II',
+  };
+}
+
+/**
+ * Quanto ainda cabe no teto deste mês.
+ *
+ * Existe separado de `aplicar` porque é a pergunta que a pessoa faz ANTES de
+ * vender, e responder a ela não exige apurar ganho nenhum.
+ *
+ * ⚠️ Isto informa, não aconselha: diz quanto falta, nunca o que fazer com a
+ * folga. A diferença entre as duas coisas é a diferença entre uma calculadora
+ * e uma consultoria tributária, e isto aqui é uma calculadora.
+ */
+function folgaDoMes(vendasNacionaisDoMes) {
+  const alienado = vendasNacionaisDoMes.reduce((s, v) => s + v.valor, 0);
+  return {
+    alienado,
+    teto: TETO_ISENCAO,
+    folga: Math.max(0, TETO_ISENCAO - alienado),
+    estourou: alienado > TETO_ISENCAO,
+  };
+}
+/* src/fiscal/br/exterior.js */
+// Criptoativo custodiado no exterior: 15%, e nenhuma isenção mensal.
+//
+// Lei nº 14.754/2023 — ver FONTES.md §2.
+//
+// ⚠️ ESTE É O ARQUIVO QUE EXISTE PARA IMPEDIR O ERRO MAIS CARO DA FERRAMENTA.
+//
+// O teto de R$ 35.000 do regime nacional NÃO alcança o exterior. Uma ferramenta
+// que aplicasse os dois juntos diria a alguém que vendeu R$ 30.000 na Binance
+// que ele não deve nada — quando ele deve 15% do ganho. O usuário confia, não
+// paga, e descobre depois com multa e juros.
+//
+// Por isso não existe, em lugar nenhum deste arquivo, um caminho que devolva
+// isenção. Não é uma condição que pode dar errado: é a ausência da condição.
+
+/** Lei 14.754/2023. 15% sobre o rendimento. */
+const ALIQUOTA_EXTERIOR = 0.15;
+
+/**
+ * Aplica o regime do exterior às vendas de um período.
+ *
+ * Apuração ANUAL, não mensal — a lei manda apurar na Declaração de Ajuste.
+ * Por isso o resultado carrega o ano, e o agregado mensal existe só para a
+ * pessoa acompanhar; o imposto fecha no ano.
+ */
+function aplicarExterior(vendas) {
+  const doExterior = vendas.filter((v) => v.regime === REGIME.EXTERIOR);
+
+  const alienado = doExterior.reduce((s, v) => s + v.valor, 0);
+  const ganhos = doExterior.filter((v) => v.ganho > 0).reduce((s, v) => s + v.ganho, 0);
+  const prejuizos = doExterior.filter((v) => v.ganho < 0).reduce((s, v) => s + v.ganho, 0);
+
+  // No regime do exterior o prejuízo compensa o ganho dentro do mesmo ano —
+  // é rendimento de aplicação financeira, não ganho de capital de bem avulso.
+  // É a diferença de tratamento que mais surpreende quem vem do regime nacional.
+  const base = Math.max(0, ganhos + prejuizos);
+
+  return {
+    regime: REGIME.EXTERIOR,
+    alienado,
+    // dito explicitamente, para ninguém procurar o campo e concluir que sumiu:
+    isento: false,
+    teto: null,
+    ganhoBruto: ganhos,
+    prejuizo: prejuizos,
+    baseTributavel: base,
+    aliquota: ALIQUOTA_EXTERIOR,
+    imposto: Math.round(base * ALIQUOTA_EXTERIOR),
+    apuracao: 'anual',
+    fonte: 'Lei 14.754/2023',
+  };
+}
+/* src/fiscal/br/decripto.js */
+// DeCripto: a obrigação de INFORMAR. Não é imposto.
+//
+// IN RFB nº 2.291, de 14/11/2025 — ver FONTES.md §3.
+//
+// ⚠️ ESTE R$ 35.000 NÃO É O R$ 35.000 DA ISENÇÃO.
+//
+// Coincidem no valor e são opostos no gatilho:
+//
+//   isenção  → alienações em exchange NACIONAL. Passou do teto, PAGA imposto.
+//   DeCripto → operações FORA de exchange nacional. Passou do teto, DECLARA.
+//
+// O mesmo mês pode ser isento e declarável, ou tributado e não declarável.
+// Existe um teste em `prova/armadilhas.test.js` que falha se este arquivo e
+// `isencao.js` derem a mesma resposta para as entradas em que eles têm de
+// divergir. Se alguém um dia "simplificar" os dois num só, o teste cai.
+
+/** IN RFB 2.291/2025. Em centavos. */
+const TETO_DECRIPTO = 3_500_000;
+
+/**
+ * As custódias cujas operações contam para o gatilho.
+ *
+ * É o complemento de `'nacional'`: a IN fala em operações não realizadas por
+ * intermédio de exchange nacional. Exchange estrangeira e carteira própria
+ * entram; exchange brasileira fica fora, porque ela mesma já reporta.
+ */
+const CONTAM = ['exterior', 'autocustodia'];
+
+/**
+ * Este mês precisa de DeCripto?
+ *
+ * Conta TODA operação — compra, venda e transferência — e não só alienação.
+ * É "operações", não "alienações", e essa palavra é a diferença entre
+ * declarar e não declarar. Quem só somasse venda perderia o mês de quem
+ * comprou R$ 50.000 em autocustódia e não vendeu nada.
+ */
+function avaliarDecripto(operacoes) {
+  const contadas = operacoes.filter((o) => CONTAM.includes(custodiaDe(o)));
+  const somatorio = contadas.reduce((s, o) => s + valorDe(o), 0);
+
+  return {
+    obrigado: somatorio > TETO_DECRIPTO,
+    somatorio,
+    teto: TETO_DECRIPTO,
+    quantidade: contadas.length,
+    custodiasContadas: [...new Set(contadas.map(custodiaDe))],
+    prazo: 'último dia útil do mês seguinte ao das operações',
+    canal: 'e-CAC',
+    fonte: 'IN RFB nº 2.291/2025',
+    // dito aqui para não precisar ser lembrado lá na frente:
+    alteraImposto: false,
+  };
+}
+
+/** Transferência tem `de` e `para`; os dois lados contam se forem contáveis. */
+function custodiaDe(op) {
+  if (op.tipo === 'transferencia') {
+    return CONTAM.includes(op.de) ? op.de : op.para;
+  }
+  return op.custodia;
+}
+
+/**
+ * O valor que a operação leva para o somatório.
+ *
+ * Transferência não tem preço — não houve negócio. O que ela movimenta é
+ * quantidade, e a IN pede o valor da operação. Usa-se o custo do que foi
+ * movido, que é o único valor conhecido e verdadeiro; `avaliar` recebe esse
+ * custo já calculado por `apuracao.js`.
+ */
+function valorDe(op) {
+  return op.tipo === 'transferencia' ? (op.custo ?? 0) : op.valor;
+}
+/* src/fiscal/br/apurar.js */
+// O fechamento: pega os eventos e devolve o mês e o ano, prontos para a tela.
+//
+// É o único arquivo que junta as três regras, e ele as mantém separadas de
+// propósito. A isenção olha o mês nacional; o exterior fecha no ano; a DeCripto
+// é obrigação de informar e não é imposto. Misturar os três num número só é
+// exatamente o erro que o PDF de especificação cometeu.
+
+/**
+ * Fecha tudo.
+ *
+ * Devolve `{ meses, anos, avisos }`. A tela lê isso e não calcula mais nada —
+ * cálculo na camada de tela é como dois números divergem.
+ */
+function fechar(eventos) {
+  const comRegime = eventos.map((e) => ({ ...e, regime: regimeDe(e.custodia ?? e.de) }));
+
+  const meses = [...porMes(comRegime)].map(([mes, doMes]) => {
+    const v = vendas(doMes);
+    return {
+      mes,
+      nacional: aplicarIsencao(v),
+      exterior: aplicarExterior(v),
+      decripto: avaliarDecripto(doMes),
+      operacoes: doMes.length,
+    };
+  });
+
+  // O exterior fecha no ANO, não no mês: é o que a Lei 14.754/2023 manda.
+  // O bloco mensal acima existe para acompanhar; este é o que vira imposto.
+  const anos = [...porAno(comRegime)].map(([ano, doAno]) => ({
+    ano,
+    exterior: aplicarExterior(vendas(doAno)),
+    mesesComDecripto: meses.filter((m) => m.mes.startsWith(ano) && m.decripto.obrigado)
+      .map((m) => m.mes),
+  }));
+
+  return { meses, anos, avisos: avisosDe(comRegime) };
+}
+
+/**
+ * O que a tela precisa dizer em voz alta.
+ *
+ * Um aviso aqui não é decoração: é o lugar onde a ferramenta admite que
+ * aplicou uma leitura e não um fato. Some daqui, some da tela, e aí a pessoa
+ * acha que o número é certo quando ele é defensável.
+ */
+function avisosDe(eventos) {
+  const avisos = [];
+
+  const usadas = new Set(eventos.map((e) => e.custodia ?? e.para));
+  for (const c of INTERPRETADAS) {
+    if (usadas.has(c)) {
+      avisos.push({
+        tipo: 'interpretacao',
+        custodia: c,
+        certeza: certezaDe(c),
+        texto:
+          `Operações em ${c} foram tratadas pelo regime nacional, com direito à isenção ` +
+          `mensal. Isso é leitura da norma, não texto expresso — há tributarista que ` +
+          `discorda. Ver FONTES.md §2.`,
+      });
+    }
+  }
+
+  if (usadas.has('exterior')) {
+    avisos.push({
+      tipo: 'regime',
+      custodia: 'exterior',
+      certeza: 'fato',
+      texto:
+        'A isenção mensal de R$ 35.000 NÃO se aplica a operações em exchange estrangeira. ' +
+        'Lei 14.754/2023: 15% sobre o ganho, apurado no ano. Ver FONTES.md §2.',
+    });
+  }
+
+  return avisos;
+}
+
+/** Um mês específico, para a tela que mostra um mês por vez. */
+function mesDoFechamento(eventos, aaaaMM) {
+  return fechar(eventos).meses.find((m) => m.mes === aaaaMM) ?? null;
+}
+/* src/assinatura.js */
+// A assinatura: cada apuração fechada ganha o seu próprio sigilo.
+//
+// O PEDIDO. "A interface deve conter os sigilos e utilizar dos motores
+// anteriores, tornando nossa assinatura válida e persistente dentro do uso que
+// se for feito." O jeito de fazer isso sem virar enfeite é dar FUNÇÃO ao
+// sigilo: ele não decora a apuração, ele a identifica.
+//
+// COMO. O conteúdo da apuração — mês, ativos, valores, custódias, base
+// tributável — vira um código de 32 bits. O mesmo mês fechado devolve sempre o
+// mesmo código; um centavo diferente devolve outro. O código escolhe a peça.
+//
+// O QUE ISSO DÁ, e é útil de verdade: dois resumos do mesmo mês com desenhos
+// diferentes são dois cálculos diferentes, e dá para ver isso de relance, sem
+// conferir número por número. É uma soma de verificação que uma pessoa
+// enxerga.
+//
+// ⚠️ O QUE ISSO NÃO É. Não é proteção, não impede cópia, não detecta nada e não
+// resiste a quem queira forjar: o código é derivado de dados públicos por uma
+// função pública. É identidade e procedência, não tranca. A marca de
+// procedência real das peças publicadas é outra coisa, mora no repositório
+// privado e não vem para cá.
+
+// AS PEÇAS. A fatia aberta tem 100 SVG em `samples/open-set/`, já publicados e
+// já licenciados. O sigilo da apuração é escolhido entre eles — nenhum motor de
+// desenho roda aqui, e nenhum código de desenho precisa estar aqui.
+//
+// É a montagem que respeita o voto registrado da Amanda sobre manter o código
+// fechado e, ainda assim, põe a assinatura dentro da ferramenta. Se essa decisão
+// mudar, troca-se a origem das peças por um gerador e o resto continua igual.
+
+/**
+ * Código de 32 bits do conteúdo de uma apuração.
+ *
+ * FNV-1a de 32 bits: pequeno, sem dependência, e determinístico entre
+ * máquinas. Não é criptográfico e não precisa ser — o que se quer é que
+ * conteúdos diferentes deem códigos diferentes, não que ninguém consiga
+ * construir uma colisão de propósito.
+ */
+function codigoDe(apuracao) {
+  const texto = canonizar(apuracao);
+  let h = 0x811c9dc5;
+  for (let i = 0; i < texto.length; i += 1) {
+    h ^= texto.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+
+/**
+ * Separador dos campos do texto canônico.
+ *
+ * Escrito assim, e não como caractere literal, porque um byte zero dentro de um
+ * arquivo-fonte faz o git tratá-lo como binário e o grep se recusar a lê-lo.
+ * Foi o que aconteceu na primeira versão deste arquivo.
+ */
+const SEPARADOR_CANONICO = String.fromCharCode(0);
+
+/**
+ * O texto canônico de uma apuração.
+ *
+ * "Canônico" aqui tem de ser levado a sério: se a mesma apuração puder gerar
+ * dois textos, ela gera dois sigilos, e o sigilo deixa de significar qualquer
+ * coisa. Por isso as chaves entram em ordem fixa e os números entram como
+ * inteiros — nada de `JSON.stringify` de objeto, cuja ordem depende de como o
+ * objeto foi montado.
+ */
+function canonizar(a) {
+  const partes = [
+    `mes=${a.mes}`,
+    `alienado=${a.nacional.alienado}`,
+    `isento=${a.nacional.isento ? 1 : 0}`,
+    `base=${a.nacional.baseTributavel}`,
+    `ext.alienado=${a.exterior.alienado}`,
+    `ext.base=${a.exterior.baseTributavel}`,
+    `ext.imposto=${a.exterior.imposto}`,
+    `decripto=${a.decripto.obrigado ? 1 : 0}`,
+    `decripto.soma=${a.decripto.somatorio}`,
+    `ops=${a.operacoes}`,
+  ];
+  return partes.join(SEPARADOR_CANONICO);
+}
+
+/** O código em hexadecimal, com oito dígitos. É o que vai impresso. */
+const codigoHex = (codigo) => codigo.toString(16).padStart(8, '0').toUpperCase();
+
+/**
+ * Qual peça da fatia aberta representa esta apuração.
+ *
+ * Os 100 arquivos são `OPEN-A-001` … `OPEN-C-0NN`. A distribuição entre os três
+ * prefixos não é uniforme no disco, então a escolha usa o índice global e
+ * consulta a lista real — chutar o prefixo pelo resto da divisão daria nome de
+ * arquivo que não existe.
+ */
+function pecaDe(codigo, catalogo) {
+  if (!Array.isArray(catalogo) || catalogo.length === 0) {
+    throw new RangeError('catálogo de peças vazio');
+  }
+  return catalogo[codigo % catalogo.length];
+}
+
+/**
+ * A assinatura completa de uma apuração: o código e a peça.
+ *
+ * `catalogo` é a lista de nomes de arquivo da fatia aberta. Quem chama passa a
+ * lista porque este módulo não lê disco nem rede — é puro, e por isso testável
+ * sem montar um ambiente.
+ */
+function assinar(apuracao, catalogo) {
+  const codigo = codigoDe(apuracao);
+  return {
+    codigo,
+    hex: codigoHex(codigo),
+    peca: pecaDe(codigo, catalogo),
+    mes: apuracao.mes,
+    // dito no próprio objeto, para não se perder quando isto virar CSV:
+    natureza: 'identificacao',
+    aviso: 'Identifica a apuração. Não é prova, não é proteção, não impede cópia.',
+  };
+}
+
+/**
+ * O rodapé que vai nos arquivos exportados.
+ *
+ * Existe aqui, e não na camada de tela, porque é assinatura: se cada formato de
+ * exportação escrevesse o seu, eles divergiriam, e um documento diria uma coisa
+ * e o outro, outra.
+ */
+function rodape(assinatura) {
+  return [
+    `Apuração ${assinatura.mes} · código ${assinatura.hex} · sigilo ${assinatura.peca}`,
+    'Prototype-TM01 — Nthnkr "dpna" e AmandaBT',
+    'Conferência de valores é do contribuinte. Isto não é orientação tributária.',
+  ];
+}
+/* src/ui/tela.js */
+// A tela. Lê o que foi digitado, manda calcular, mostra.
+//
+// ESTA CAMADA NÃO CALCULA NADA. Ela formata o que `fiscal/br/apurar.js`
+// devolveu. Se um número aparecer aqui que não veio de lá, ele diverge do
+// exportado — e aí o resumo na tela e o CSV baixado dizem coisas diferentes.
+//
+// TAMBÉM NÃO FALA COM NINGUÉM. Nenhum `fetch`, nenhum `XMLHttpRequest`, nenhum
+// `<img>` remoto, nenhuma fonte externa. Isto é requisito, não preferência: a
+// pessoa está colando o histórico financeiro dela. Há um teste que abre a página
+// num navegador de verdade e falha se sair uma requisição.
+
+/** Os 100 nomes da fatia aberta. Gerado na construção — ver `construir.mjs`. */
+const CATALOGO = globalThis.__CATALOGO__ ?? [];
+
+let ultimo = null;   // o último fechamento, para os botões de exportar
+
+function iniciar() {
+  const estilo = document.createElement('style');
+  estilo.textContent = variaveis();
+  document.head.appendChild(estilo);
+
+  const campo = document.getElementById('operacoes');
+  campo.placeholder = EXEMPLO;
+
+  document.getElementById('calcular').addEventListener('click', calcular);
+  document.getElementById('exemplo').addEventListener('click', () => {
+    campo.value = EXEMPLO;
+    calcular();
+  });
+  document.getElementById('limpar').addEventListener('click', () => {
+    campo.value = '';
+    document.getElementById('saida').innerHTML = '';
+    ultimo = null;
+  });
+  document.getElementById('csv').addEventListener('click', () => baixar('csv'));
+  document.getElementById('json').addEventListener('click', () => baixar('json'));
+}
+
+function calcular() {
+  const saida = document.getElementById('saida');
+  const texto = document.getElementById('operacoes').value;
+
+  if (texto.trim() === '') {
+    saida.innerHTML = '';
+    ultimo = null;
+    return;
+  }
+
+  try {
+    const operacoes = ler(texto);
+    const { eventos } = apurar(operacoes);
+    ultimo = fechar(eventos);
+    saida.innerHTML = desenhar(ultimo);
+  } catch (e) {
+    ultimo = null;
+    // O erro é mostrado inteiro, com a linha. Uma mensagem genérica aqui
+    // obrigaria a pessoa a caçar o problema em cinquenta linhas de histórico.
+    saida.innerHTML =
+      `<section><h2>Não deu para ler</h2><div class="erro">${escapar(
+        e instanceof LinhaIlegivel ? e.message : String(e.message ?? e),
+      )}</div></section>`;
+  }
+}
+
+function desenhar({ meses, anos, avisos }) {
+  const partes = [];
+
+  if (avisos.length) {
+    partes.push(`<section><h2>Antes do número</h2>${
+      avisos.map((a) => `<div class="aviso"><b>${
+        a.certeza === 'interpretacao' ? 'Interpretação' : 'Regra'
+      }</b> — ${escapar(a.texto)}</div>`).join('')
+    }</section>`);
+  }
+
+  partes.push(`<section><h2>Mês a mês</h2>${meses.map(blocoMes).join('')}</section>`);
+
+  if (anos.length) {
+    partes.push(`<section><h2>Fechamento anual do exterior</h2>
+      <p style="color:var(--fraco);font-size:var(--em1);margin-top:0">
+        A Lei 14.754/2023 apura no ano, não no mês. É este número que vai para a
+        Declaração de Ajuste — os blocos mensais acima servem para acompanhar.</p>
+      ${anos.map(blocoAno).join('')}</section>`);
+  }
+
+  return partes.join('');
+}
+
+function blocoMes(m) {
+  const a = CATALOGO.length ? assinar(m, CATALOGO) : null;
+
+  return `<div class="mes">
+    <h2>${m.mes}<small>${m.operacoes} ${m.operacoes === 1 ? 'operação' : 'operações'}</small></h2>
+    <table>
+      <tr><th>Alienado em regime nacional</th><td>${formatarBRL(m.nacional.alienado)}</td></tr>
+      <tr><th>Teto da isenção (Lei 9.250/1995, art. 22)</th><td>${formatarBRL(m.nacional.teto)}</td></tr>
+      <tr><th>${m.nacional.isento ? 'Ainda cabe no teto' : 'Passou do teto em'}</th>
+          <td>${formatarBRL(m.nacional.isento ? m.nacional.folga : m.nacional.excedente)}</td></tr>
+      <tr><th>Situação</th><td>${
+        m.nacional.isento
+          ? '<span class="selo sim">isento</span>'
+          : '<span class="selo nao">tributado</span>'
+      }</td></tr>
+      ${m.nacional.baseTributavel > 0
+        ? `<tr><th>Base tributável no regime nacional</th><td><strong>${
+            formatarBRL(m.nacional.baseTributavel)}</strong></td></tr>`
+        : ''}
+      ${m.nacional.prejuizo < 0
+        ? `<tr><th>Prejuízo no mês (não compensa ganho de capital)</th><td>${
+            formatarBRL(m.nacional.prejuizo)}</td></tr>`
+        : ''}
+    </table>
+
+    ${m.exterior.alienado > 0 ? `<h3>Exterior — sem isenção mensal</h3><table>
+      <tr><th>Alienado no exterior</th><td>${formatarBRL(m.exterior.alienado)}</td></tr>
+      <tr><th>Base no mês</th><td>${formatarBRL(m.exterior.baseTributavel)}</td></tr>
+      <tr><th>15% sobre a base (fecha no ano)</th><td>${formatarBRL(m.exterior.imposto)}</td></tr>
+    </table>` : ''}
+
+    <h3>DeCripto — obrigação de informar</h3>
+    <table>
+      <tr><th>Operações fora de exchange nacional</th><td>${formatarBRL(m.decripto.somatorio)}</td></tr>
+      <tr><th>Teto da IN RFB 2.291/2025</th><td>${formatarBRL(m.decripto.teto)}</td></tr>
+      <tr><th>Precisa declarar?</th><td>${
+        m.decripto.obrigado
+          ? '<span class="selo nao">sim</span>'
+          : '<span class="selo sim">não</span>'
+      }</td></tr>
+      ${m.decripto.obrigado
+        ? `<tr><th>Prazo</th><td>${m.decripto.prazo}, pelo ${m.decripto.canal}</td></tr>`
+        : ''}
+    </table>
+
+    ${a ? `<div class="assinatura">
+      <img src="samples/open-set/${a.peca}.svg" alt="">
+      <div>Assinatura desta apuração<br><code>${a.hex}</code> · ${a.peca}</div>
+    </div>` : ''}
+  </div>`;
+}
+
+function blocoAno(y) {
+  return `<div class="mes"><h2>${y.ano}</h2><table>
+    <tr><th>Alienado no exterior no ano</th><td>${formatarBRL(y.exterior.alienado)}</td></tr>
+    <tr><th>Base anual (prejuízo compensa ganho, neste regime)</th>
+        <td>${formatarBRL(y.exterior.baseTributavel)}</td></tr>
+    <tr><th>Imposto a 15%</th><td><strong>${formatarBRL(y.exterior.imposto)}</strong></td></tr>
+    ${y.mesesComDecripto.length
+      ? `<tr><th>Meses com DeCripto</th><td>${y.mesesComDecripto.join(', ')}</td></tr>`
+      : ''}
+  </table></div>`;
+}
+
+// ── exportar ─────────────────────────────────────────────────
+
+function baixar(formato) {
+  if (!ultimo) return;
+  const texto = formato === 'csv' ? comoCsv(ultimo) : comoJson(ultimo);
+  const tipo = formato === 'csv' ? 'text/csv' : 'application/json';
+
+  // Blob + object URL: o arquivo é montado na própria máquina e nunca sai dela.
+  const url = URL.createObjectURL(new Blob([texto], { type: `${tipo};charset=utf-8` }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `apuracao-${ultimo.meses[0]?.mes ?? 'cripto'}.${formato}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function comoCsv({ meses }) {
+  const cabecalho = [
+    'mes', 'alienado_nacional', 'isento', 'base_nacional',
+    'alienado_exterior', 'base_exterior', 'imposto_exterior',
+    'decripto_somatorio', 'decripto_obrigado', 'assinatura', 'sigilo',
+  ];
+  const linhas = meses.map((m) => {
+    const a = CATALOGO.length ? assinar(m, CATALOGO) : { hex: '', peca: '' };
+    return [
+      m.mes, centavos(m.nacional.alienado), m.nacional.isento ? 'sim' : 'nao',
+      centavos(m.nacional.baseTributavel), centavos(m.exterior.alienado),
+      centavos(m.exterior.baseTributavel), centavos(m.exterior.imposto),
+      centavos(m.decripto.somatorio), m.decripto.obrigado ? 'sim' : 'nao',
+      a.hex, a.peca,
+    ].join(',');
+  });
+  const assinatura = CATALOGO.length && meses[0]
+    ? rodape(assinar(meses[0], CATALOGO)).map((l) => `# ${l}`)
+    : [];
+  return [...assinatura, cabecalho.join(','), ...linhas].join('\n');
+}
+
+function comoJson({ meses, anos, avisos }) {
+  const assinaturas = CATALOGO.length
+    ? Object.fromEntries(meses.map((m) => [m.mes, assinar(m, CATALOGO)]))
+    : {};
+  return JSON.stringify({
+    ferramenta: 'Prototype-TM01',
+    autoria: 'Nthnkr "dpna" e AmandaBT',
+    aviso: 'Não é orientação tributária. Conferência de valores é do contribuinte.',
+    fontes: 'FONTES.md',
+    meses, anos, avisos, assinaturas,
+  }, null, 2);
+}
+
+/** Centavos → `1234.56`, com ponto, porque CSV não é para humano ler. */
+const centavos = (c) => (c / 100).toFixed(2);
+
+function escapar(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+iniciar();
+})();
+</script>
+</body>
+</html>

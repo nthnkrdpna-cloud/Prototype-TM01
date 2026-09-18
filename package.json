@@ -1,0 +1,14 @@
+{
+  "name": "prototype-tm01",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Brazilian crypto tax calculation, in the browser. Nothing leaves the machine.",
+  "scripts": {
+    "test": "node --test prova/*.test.js",
+    "construir": "node construir.mjs",
+    "prova": "node prova/navegador.mjs",
+    "tudo": "npm test && npm run construir && npm run prova"
+  },
+  "comentario": "Dependencia zero. `npm test` e `npm run construir` nao precisam de nada instalado. So `npm run prova`, que abre a pagina num Chromium de verdade, precisa do playwright."
+}

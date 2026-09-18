@@ -1,0 +1,152 @@
+/* A folha de estilo não escolhe uma medida sequer.
+ *
+ * Toda dimensão é `var(--eN)`, e essas variáveis são geradas por
+ * `proporcao.js` a partir de φ^(n/2). Se aquele arquivo sumir, esta folha
+ * perde todo o espaçamento — que é exatamente a prova de que as medidas
+ * vêm de lá, e não do olho de quem escreveu.
+ *
+ * As cores não descendem de φ, e dizer que descendem seria mentira: são
+ * escolhidas para contraste legível, e o contraste é medido contra o fundo,
+ * não derivado de proporção. */
+
+:root {
+  color-scheme: light dark;
+  --tinta: #16151a;
+  --fundo: #faf9f7;
+  --papel: #ffffff;
+  --linha: #dedbd4;
+  --fraco: #6b6862;
+  --acento: #3a5a78;
+  --alerta: #8a4b2a;
+  --bom: #2f6146;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tinta: #e8e5df;
+    --fundo: #131316;
+    --papel: #1b1b1f;
+    --linha: #33323a;
+    --fraco: #9a968e;
+    --acento: #8fb4d4;
+    --alerta: #d79a76;
+    --bom: #86c3a2;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: var(--e3);
+  background: var(--fundo);
+  color: var(--tinta);
+  font: var(--e0)/1.618 ui-serif, Georgia, "Times New Roman", serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+main { max-width: 54rem; margin: 0 auto; }
+
+/* ── cabeçalho ─────────────────────────────────────────────── */
+
+header { display: flex; align-items: center; gap: var(--e1); margin-bottom: var(--e3); }
+header img { width: var(--e7); height: var(--e7); flex: none; }
+header h1 { margin: 0; font-size: var(--e3); font-weight: 600; letter-spacing: -0.01em; }
+header p { margin: var(--em4) 0 0; color: var(--fraco); font-size: var(--em1); }
+
+/* ── blocos ────────────────────────────────────────────────── */
+
+section {
+  background: var(--papel);
+  border: 1px solid var(--linha);
+  border-radius: var(--em2);
+  padding: var(--e2);
+  margin-bottom: var(--e2);
+}
+
+h2 { margin: 0 0 var(--e1); font-size: var(--e1); font-weight: 600; }
+h3 { margin: var(--e1) 0 var(--em1); font-size: var(--e0); font-weight: 600; color: var(--fraco); }
+
+textarea {
+  width: 100%;
+  min-height: var(--e10);   /* cabe o exemplo inteiro sem rolar */
+  padding: var(--em1);
+  border: 1px solid var(--linha);
+  border-radius: var(--em3);
+  background: var(--fundo);
+  color: var(--tinta);
+  font: var(--em1)/1.618 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  resize: vertical;
+}
+
+.botoes { display: flex; flex-wrap: wrap; gap: var(--em1); margin-top: var(--e1); }
+
+button {
+  padding: var(--em2) var(--e1);
+  border: 1px solid var(--linha);
+  border-radius: var(--em3);
+  background: var(--fundo);
+  color: var(--tinta);
+  font: inherit;
+  font-size: var(--em1);
+  cursor: pointer;
+}
+button:hover { border-color: var(--acento); color: var(--acento); }
+button.principal { background: var(--acento); border-color: var(--acento); color: var(--papel); }
+button.principal:hover { opacity: 0.88; color: var(--papel); }
+
+/* ── resultado ─────────────────────────────────────────────── */
+
+.mes { border-top: 1px solid var(--linha); padding-top: var(--e1); margin-top: var(--e1); }
+.mes:first-of-type { border-top: 0; margin-top: 0; }
+.mes > h2 { display: flex; justify-content: space-between; align-items: baseline; gap: var(--e1); }
+.mes > h2 small { font-size: var(--em2); font-weight: 400; color: var(--fraco); }
+
+table { width: 100%; border-collapse: collapse; font-size: var(--em1); }
+th, td { padding: var(--em3) 0; text-align: left; vertical-align: baseline; }
+td:last-child, th:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+tr + tr th, tr + tr td { border-top: 1px solid var(--linha); }
+th { font-weight: 400; color: var(--fraco); }
+td strong { font-weight: 600; }
+
+.selo { display: inline-block; padding: var(--em4) var(--em2); border-radius: var(--em4); font-size: var(--em2); }
+.selo.sim { background: color-mix(in srgb, var(--bom) 16%, transparent); color: var(--bom); }
+.selo.nao { background: color-mix(in srgb, var(--alerta) 16%, transparent); color: var(--alerta); }
+
+/* ── avisos ────────────────────────────────────────────────── */
+
+.aviso {
+  border-left: var(--em4) solid var(--alerta);
+  padding: var(--em2) var(--e1);
+  margin: var(--e1) 0;
+  background: color-mix(in srgb, var(--alerta) 7%, transparent);
+  font-size: var(--em1);
+}
+.aviso b { color: var(--alerta); }
+
+.erro {
+  border-left: var(--em4) solid var(--alerta);
+  padding: var(--em2) var(--e1);
+  margin-top: var(--e1);
+  background: color-mix(in srgb, var(--alerta) 10%, transparent);
+  font: var(--em1)/1.618 ui-monospace, Menlo, monospace;
+  white-space: pre-wrap;
+}
+
+/* ── assinatura ────────────────────────────────────────────── */
+
+.assinatura { display: flex; align-items: center; gap: var(--e1); margin-top: var(--e1); }
+.assinatura img { width: var(--e6); height: var(--e6); flex: none; }
+.assinatura div { font-size: var(--em2); color: var(--fraco); }
+.assinatura code { font-size: var(--em1); color: var(--tinta); letter-spacing: 0.08em; }
+
+/* ── rodapé ────────────────────────────────────────────────── */
+
+footer { margin-top: var(--e3); font-size: var(--em2); color: var(--fraco); }
+footer p { margin: var(--em2) 0; }
+a { color: var(--acento); }
+
+@media (max-width: 30rem) {
+  body { padding: var(--e1); }
+  header { flex-wrap: wrap; }
+}

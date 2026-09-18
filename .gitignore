@@ -1,0 +1,17 @@
+node_modules/
+package-lock.json
+
+# nada de credencial, em nenhum formato
+*_API_KEY
+*_TOKEN
+*.pem
+*.key
+.env
+.env.*
+
+# Nada de relatório de corretora de verdade dentro do repositório. A ferramenta
+# existe justamente para que esse arquivo não precise sair da máquina de ninguém
+# — seria contraditório ele acabar versionado aqui por descuido.
+operacoes*.csv
+*-corretora.csv
+*.ofx

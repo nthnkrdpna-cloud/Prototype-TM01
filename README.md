@@ -1,123 +1,181 @@
 <p align="center">
-  <img src="samples/sigils/TM01-001.svg" width="90" alt="">
-  <img src="samples/sigils/TM01-007.svg" width="90" alt="">
-  <img src="samples/sigils/TM01-013.svg" width="90" alt="">
-  <img src="samples/sigils/TM01-019.svg" width="90" alt="">
+  <img src="samples/open-set/OPEN-A-001.svg" width="78" alt="">
+  <img src="samples/open-set/OPEN-B-007.svg" width="78" alt="">
+  <img src="samples/open-set/OPEN-C-013.svg" width="78" alt="">
+  <img src="samples/open-set/OPEN-A-019.svg" width="78" alt="">
 </p>
 
 # Prototype-TM01
 
-**A generative engine that draws abstract sigils and derives their sound from the same
-parameters.** This repository is a **research milestone**, not a product and not the full system:
-it publishes samples and measurements, so the work can be looked at and judged from outside.
+**A Brazilian crypto tax calculator that runs entirely in your browser, and a generative engine
+whose output signs what it produces.** Open source, no install, no account, no server.
 
 By **Nthnkr "dpna"** and **AmandaBT**.
 
-> **Status: active development.** The engine works and produces finished pieces. Its central
-> claim — that shape and sound carry the same meaning — **was tested, failed, and was rebuilt.**
-> It has not been re-tested yet. That is stated up front because it is the honest position, and
-> because the failure is the most useful thing here.
+> **Nothing leaves your machine.** The page makes no network requests at all — no price lookup, no
+> analytics, no external fonts. You are pasting a financial statement; that is not a promise to
+> take on trust. Open your browser's network panel and watch it calculate.
 
 ---
 
-## What the engine does
+## The tool
 
-A piece is not stored as a drawing. It is stored as a **recipe** — a short, deterministic
-description — and drawn from that recipe on demand. The same recipe always produces the same
-piece, byte for byte.
+Open [`index.html`](index.html). One file, straight off disk. Paste your operations, one per line:
 
-| | |
-|---|---|
-| **Composition** | 5 strokes per piece, from 4 symmetry families, closed by a containing ring |
-| **Semantic layer** | 6 axes — *power · bond · shelter · motion · disclosure · cost* — summed from the strokes, never written by hand |
-| **Colour** | derived from the axes, not chosen. One colour per finished piece |
-| **Sound** | the same axes drive the audio: one stroke, one sonic event |
-| **Proportion** | every measurement descends from **φ**, the golden ratio. No number is picked by eye |
-| **Output** | plain SVG, no dependencies, no runtime |
+```
+2026-09-01    compra         BTC    0,5   150.000,00   nacional
+2026-09-05    compra         ETH    2      40.000,00   exterior
+2026-09-10    transferencia  BTC    0,2   nacional     autocustodia
+2026-09-15    venda          BTC    0,2    70.000,00   autocustodia
+2026-09-20    venda          ETH    1      25.000,00   exterior
+```
 
-**Determinism is the point, not a side effect.** A piece is identified by its seed. Ship the seed
-and you ship the whole catalogue — which is why the samples below name theirs.
+It gives you weighted average cost per asset, the monthly total by custody, how much of the
+exemption is left, the tax due under each regime, and whether you have to file DeCripto — plus
+CSV and JSON you can hand to an accountant.
+
+**It will not tell you when to sell.** It shows what happened and what remains. Suggesting a
+trade is advice, and this is arithmetic.
+
+The interface is in Portuguese because the rules it applies are Brazilian. Everything else here
+is in English.
 
 ---
 
-## Samples
+## The one thing worth knowing, if you read nothing else
 
-The 24 pieces below were generated with seed **`1618033988`** (the digits of φ). The open set in
-[`GALLERY.md`](GALLERY.md) uses its own seeds, reserved for publication. Every one of them is
-**new** — none belongs to any set that exists elsewhere, verified by comparing the artwork itself
-against all 2,400 files of the three packs.
+**There are two different R$ 35,000 thresholds in Brazilian crypto tax, and they trigger on
+opposite things.**
+
+| | Exemption | DeCripto |
+|---|---|---|
+| What it does | you owe no tax on the gain | you are required to report |
+| Source | Lei 9.250/1995, art. 22, II | IN RFB nº 2.291/2025 |
+| Where it applies | disposals on a **Brazilian** exchange | operations **outside** a Brazilian exchange |
+| Crossing it means | you start paying | you start filing |
+
+The same month can be exempt and reportable, or taxed and not reportable. And **the exemption
+does not exist for foreign custody at all** — Lei 14.754/2023 taxes that at a flat 15% with no
+monthly allowance.
+
+Get this wrong and the tool tells a person they owe nothing when they owe. It is the most
+expensive mistake available here, so custody is the *structure* of the calculation rather than a
+field on a form, and there is a test that fails if the two thresholds ever start agreeing.
+
+Every rule, with its norm and the date it was last checked, is in [`FONTES.md`](FONTES.md).
+A number without a source does not ship.
+
+---
+
+## Where this comes from
+
+This repository began as a **research milestone**: a generative engine that draws abstract sigils
+and derives their sound from the same parameters. That work is still here, and still the reason
+the rest exists.
 
 | | |
 |---|---|
 | [**`GALLERY.md`**](GALLERY.md) | **1,200 pieces in one image**, plus 100 SVG files you can take |
-| [`samples/sigils/`](samples/sigils/) | 24 pieces, colour |
-| [`samples/sigils-black/`](samples/sigils-black/) | the same 24 in pure black, heavier stroke — the variant made for engraving and skin |
-| [`samples/contact-sheet.svg`](samples/contact-sheet.svg) | all 24 on one sheet |
-| [`samples/audio/`](samples/audio/) | 6 pieces rendered to WAV — the sound of `TM01-001` … `TM01-006` |
+| [`ENGINE.md`](ENGINE.md) | the engine's interface and invariants |
+| [`samples/`](samples/) | 24 sigils in colour and in black, a contact sheet, 6 rendered to WAV |
 
-**How these 24 were made, with the numbers:** 24 distinct pieces out of **57 attempts**. The
-other 33 were rejected by automatic quality gates — 21 for reading as loose strokes rather than a
-glyph, 11 for being too dark, 1 for a colour with no direction. Average weight: **1,196 bytes per
-piece** (`cat samples/sigils/*.svg | wc -c`, divided by 24). Six families of rejection exist;
-three fired on this batch.
+**The engine was built inside a larger project.** That project's earlier phase — a procedural RPG
+— is **paused**. The current phase is this: take one capability, make it a tool a person can use
+in a minute, and put it in the open. What you are looking at is that phase, not a detour from it.
 
-**The audio** is the engine's own event list, rendered offline to PCM. Each piece is 5 events,
-0.5 s to 1.4 s. Rendering twice produces identical bytes — the noise component is seeded, not
-random.
+### The signature, and what it actually is
 
-### Scale
+Every closed month gets **its own sigil**, chosen deterministically from the 100 published pieces
+by a 32-bit code derived from the figures themselves. Same month, same sigil, always. One cent
+different, different sigil. It rides along in the CSV and the JSON.
 
-[**`GALLERY.md`**](GALLERY.md) shows **1,200 pieces in a single image** — three composition modes,
-400 each — and opens a set of **100 SVG files**, generated from seeds reserved for publication and
-verified against every existing piece. That is where to look if the question is what the engine
-does at volume rather than what one piece looks like.
+That makes the mark do work instead of decorating: two summaries of the same month with different
+drawings are two different calculations, and you can see that at a glance without reading a single
+number. It is a checksum a person can look at.
+
+**It is not protection.** It detects nothing, prevents nothing, and anyone who wants to forge it
+can — the code comes from public data through a public function. It is identity and provenance.
+
+**No engine source is published in this repository.** The tool draws nothing; it selects among
+files that were already published. The code here — the tax calculation, the golden-ratio scale,
+the interface — is open under AGPL-3.0. The engine that made the sigils is not part of it.
+
+### Proportion
+
+Every measurement on the page descends from **φ**, through `escala(n) = φ^(n/2)`. Padding, type
+sizes, the lot. The CSS cannot compute φ, so [`src/ui/proporcao.js`](src/ui/proporcao.js) computes
+it and the stylesheet only consumes the result — delete that file and the page loses all of its
+spacing, which is what makes the claim checkable instead of decorative.
+
+⚠️ **This is a rule we follow, not a property you can verify from outside.** Looking at one
+number — 20.4px — nobody can derive that it is `16 × φ^(1/2)`. Saying otherwise would be selling
+something we do not deliver.
 
 ---
 
 ## What was tested, and what failed
 
-This is the part worth reading. The claim under test was: *a single recipe can drive both the
-shape and the sound, and a person will hear the connection.*
-
-**The threshold was written down before the test ran** — 27 correct out of 40 forced-choice
-trials, the point where the result stops being explainable by chance.
+The engine's central claim was: *one recipe can drive both the shape and the sound, and a person
+will hear the connection.* **The threshold was written down before the test ran** — 27 correct out
+of 40 forced-choice trials.
 
 | | |
 |---|---|
-| **Result** | **24 / 40.** Below the threshold. p = 0.134 — indistinguishable from guessing |
-| **Verdict** | The claim is **refuted as implemented**. Not "needs tuning" |
-| **Root cause** | Three of the six axes were competing for the same sonic dimension, and two of them **cancelled out**. Six semantic axes had collapsed into roughly **1.5 perceptual dimensions**. Two opposite meanings were coming out as the same sound |
-| **The fix** | One rule: **each axis owns one dimension and only that one.** The mapping was rebuilt, not adjusted |
-| **Current state** | **Not re-tested.** The rebuild is untested until a new trial runs against a new pre-registered threshold |
+| **Result** | **24 / 40.** Below threshold. p = 0.134 — indistinguishable from guessing |
+| **Verdict** | **Refuted as implemented.** Not "needs tuning" |
+| **Root cause** | Three of six axes competed for the same sonic dimension and two cancelled out. Six semantic axes had collapsed into roughly **1.5 perceptual dimensions** |
+| **The fix** | One rule: **each axis owns one dimension and only that one.** Rebuilt, not adjusted |
+| **Current state** | **Not re-tested.** Untested until a new trial runs against a new pre-registered threshold |
 
 ### A second failure, of a different kind
 
-An earlier batch of 400 pieces **passed every automated test** and was judged unusable on sight.
-
-Nothing was broken. The tests measured what they were written to measure, and what they were
-written to measure was not quality. The cause turned out to be geometric: spreading the strokes
-apart grew the containing ring without growing the strokes, so the pieces came out as large rings
-with small debris inside — all correct, all alike, none of them reading as a glyph.
+An earlier batch of 400 pieces **passed every automated test** and was unusable on sight. Nothing
+was broken — the tests measured what they were written to measure, and that was not quality.
+Spreading the strokes apart grew the containing ring without growing the strokes, so the pieces
+came out as large rings with small debris inside.
 
 **A green test suite is not evidence that the output is good.** That lesson cost 400 pieces, and
-it is the reason the sample set above reports its rejection counts instead of only its successes.
+it is why `prova/navegador.mjs` opens a real Chromium and looks at the page instead of trusting
+the unit tests.
 
 ---
 
-## What this repository is not
+## Running it
 
-- **Not the full system.** No engine source is published here. What you see is output and
-  specification — see [`ENGINE.md`](ENGINE.md) for the interface and the invariants.
-- **Not a finished product.** See the status note at the top.
-- **Not a catalogue for sale.** These 24 exist to be looked at.
+```sh
+npm test            # unit tests, no dependencies needed
+npm run construir   # rebuild index.html from src/
+npm run prova       # open it in a real Chromium and check it (needs playwright)
+```
+
+The build flattens `src/` into a single `index.html` because ES modules do not load over
+`file://`. It refuses to build on a duplicate top-level name — that guard exists because two such
+collisions already happened here, and neither broke a single test.
+
+---
 
 ## Support
 
-The engine is in active development and needs support to reach a finished state. **We are
-currently aligning how best to begin crowdfunding**; there is nothing to pledge to yet. If the
-work is interesting to you, watching this repository is the useful thing for now.
+This is free software, built by two people, and it stays free. If it saved you an afternoon or a
+fine, support keeps it maintained — tax rules change, and a calculator nobody updates goes wrong
+quietly.
+
+See [`.github/FUNDING.yml`](.github/FUNDING.yml). Brazil first: GitHub Sponsors and Pix, so
+supporting it does not require an international card.
+
+**No tiers, no promised features.** Support pays for the rules being kept current.
+
+---
+
+## Not advice
+
+This software applies documented rules to numbers you type. It is not tax advice, the authors are
+not your accountant, and responsibility for what you file is yours. Where a norm admits more than
+one reading, the tool says so on screen and takes the more conservative one — erring toward less
+tax owed would be gambling with somebody else's money.
 
 ## License
 
-See [`LICENSE`](LICENSE). Short version: the samples are published so the work can be evaluated,
-not so it can be reused.
+Code under **AGPL-3.0**; artwork all rights reserved. A commercial licence for the code is held by
+the authors. See [`LICENSE`](LICENSE) — the difference between the groups is spelled out there,
+and it matters.

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apuração de cripto — Prototype-TM01</title>
+<meta name="description" content="Calculadora de imposto de criptoativos para pessoa física no Brasil. Roda no navegador, nada sai da sua máquina.">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<main>
+
+<header>
+  <img src="samples/open-set/OPEN-A-001.svg" alt="">
+  <div>
+    <h1>Apuração de cripto</h1>
+    <p>Custo médio, isenção e DeCripto — no seu navegador, sem enviar nada para lugar nenhum.</p>
+  </div>
+</header>
+
+<section>
+  <h2>Suas operações</h2>
+  <p style="margin-top:0;color:var(--fraco);font-size:var(--em1)">
+    Uma por linha: <code>data tipo ativo quantidade valor custódia</code>.
+    Custódia é <code>nacional</code>, <code>exterior</code> ou <code>autocustodia</code> —
+    e é ela que decide a regra, então não dá para omitir.
+  </p>
+  <textarea id="operacoes" spellcheck="false" autocomplete="off"></textarea>
+  <div class="botoes">
+    <button id="calcular" class="principal" type="button">Calcular</button>
+    <button id="exemplo" type="button">Pôr um exemplo</button>
+    <button id="limpar" type="button">Limpar</button>
+    <button id="csv" type="button">Baixar CSV</button>
+    <button id="json" type="button">Baixar JSON</button>
+  </div>
+</section>
+
+<div id="saida"></div>
+
+<footer>
+  <p><strong>Isto não é orientação tributária.</strong> É uma calculadora: ela aplica as regras
+  que estão em <a href="FONTES.md">FONTES.md</a>, com a norma e a data de cada uma. Quem decide
+  o seu caso é o seu contador, e a conferência dos valores é sua.</p>
+
+  <p><strong>Nada sai da sua máquina.</strong> A página não faz requisição nenhuma: não busca
+  cotação, não tem análise de uso, não tem fonte externa. O que você colar aqui fica aqui.
+  Dá para conferir — abra o painel de rede do navegador e calcule.</p>
+
+  <p><strong>A ferramenta não diz quando vender.</strong> Ela mostra o que aconteceu e quanto
+  falta do limite. Sugerir operação seria aconselhar, e não é isso que ela é.</p>
+
+  <p>Prototype-TM01, de <strong>Nthnkr “dpna”</strong> e <strong>AmandaBT</strong> ·
+  <a href="README.md">o projeto</a> · <a href="ROADMAP.md">o que vem depois</a> ·
+  <a href="LICENSE">licença</a></p>
+</footer>
+
+</main>
+<script type="module">
+  import { iniciar } from './tela.js';
+  iniciar();
+</script>
+</body>
+</html>
