@@ -1,7 +1,8 @@
-// As duas armadilhas. Estes testes existem para falhar se alguém "simplificar".
+// As três armadilhas. Estes testes existem para falhar se alguém "simplificar".
 //
 // Armadilha 1: os dois R$ 35.000 são gatilhos OPOSTOS.
 // Armadilha 2: a isenção NUNCA alcança o exterior.
+// Armadilha 3: o prejuízo do exterior NÃO atravessa o ano.
 //
 // Os dois erros produzem números plausíveis. Nenhum deles quebra nada, nenhum
 // deles aparece num log. Aparecem numa multa, meses depois, na conta de quem
@@ -158,4 +159,70 @@ test('armadilha 2: autocustódia é tratada como interpretação, e admite isso'
   const aviso = avisos.find((a) => a.custodia === 'autocustodia');
   assert.ok(aviso, 'aplicou uma leitura: tem de dizer que foi leitura');
   assert.equal(aviso.certeza, 'interpretacao');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ARMADILHA 3 — o prejuízo do exterior NÃO atravessa o ano
+//
+// Um documento de especificação deste projeto afirma, com o número da IN do
+// lado, que o motor compensaria perdas cambiais "contra lucros futuros".
+// Conferido na fonte: a IN RFB 2.180/2024 manda compensar dentro do MESMO
+// período de apuração. O excedente vai contra lucros de controladas na mesma
+// DAA — nunca contra ano seguinte.
+//
+// Implementar do jeito afirmado faria a ferramenta apurar imposto A MENOS na
+// declaração de outra pessoa. Por isso está aqui em cima, com as outras duas.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('armadilha 3: prejuízo de um ano não abate ganho do ano seguinte', () => {
+  const ops = [
+    // 2026: compra cara, vende barato — prejuízo de R$ 5.000
+    { tipo: 'compra', data: '2026-03-01', ativo: 'BTC', custodia: 'exterior',
+      quantidade: qtd(1), valor: reais(20_000) },
+    { tipo: 'venda', data: '2026-06-01', ativo: 'BTC', custodia: 'exterior',
+      quantidade: qtd(1), valor: reais(15_000) },
+    // 2027: compra barato, vende caro — ganho de R$ 5.000
+    { tipo: 'compra', data: '2027-03-01', ativo: 'ETH', custodia: 'exterior',
+      quantidade: qtd(1), valor: reais(10_000) },
+    { tipo: 'venda', data: '2027-06-01', ativo: 'ETH', custodia: 'exterior',
+      quantidade: qtd(1), valor: reais(15_000) },
+  ];
+  const { anos } = fechar(apurar(ops).eventos);
+  const a2026 = anos.find((a) => a.ano === '2026');
+  const a2027 = anos.find((a) => a.ano === '2027');
+
+  // 2026 fecha com prejuízo e sem imposto — base não fica negativa
+  assert.equal(a2026.exterior.prejuizo, -reais(5_000));
+  assert.equal(a2026.exterior.baseTributavel, 0);
+  assert.equal(a2026.exterior.imposto, 0);
+
+  // 2027 paga sobre o ganho INTEIRO. O prejuízo de 2026 não veio junto.
+  assert.equal(a2027.exterior.ganhoBruto, reais(5_000));
+  assert.equal(a2027.exterior.baseTributavel, reais(5_000),
+    'se o prejuízo de 2026 abatesse aqui, a base seria zero e o imposto também');
+  assert.equal(a2027.exterior.imposto, Math.round(reais(5_000) * 0.15));
+});
+
+test('armadilha 3: dentro do MESMO ano, o prejuízo compensa — e isso é o certo', () => {
+  const ops = [
+    { tipo: 'compra', data: '2026-03-01', ativo: 'BTC', custodia: 'exterior',
+      quantidade: qtd(1), valor: reais(20_000) },
+    { tipo: 'venda', data: '2026-04-01', ativo: 'BTC', custodia: 'exterior',
+      quantidade: qtd(1), valor: reais(15_000) },   // −5.000
+    { tipo: 'compra', data: '2026-05-01', ativo: 'ETH', custodia: 'exterior',
+      quantidade: qtd(1), valor: reais(10_000) },
+    { tipo: 'venda', data: '2026-06-01', ativo: 'ETH', custodia: 'exterior',
+      quantidade: qtd(1), valor: reais(18_000) },   // +8.000
+  ];
+  const { anos } = fechar(apurar(ops).eventos);
+  const a = anos.find((x) => x.ano === '2026').exterior;
+  assert.equal(a.baseTributavel, reais(3_000), '8.000 de ganho menos 5.000 de perda');
+  assert.equal(a.imposto, Math.round(reais(3_000) * 0.15));
+});
+
+test('armadilha 3: o resultado declara em que período a compensação vale', () => {
+  const r = aplicarExterior([{ regime: 'exterior', valor: reais(1_000), ganho: reais(100) }]);
+  assert.match(r.compensacao, /mesmo periodo/);
+  assert.match(r.fonte, /2\.180\/2024/, 'a IN que regulamenta a lei entra na fonte');
+  assert.match(r.correcaoDaPerda, /valor nominal/);
 });

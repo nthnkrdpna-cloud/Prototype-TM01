@@ -1,6 +1,12 @@
 // Criptoativo custodiado no exterior: 15%, e nenhuma isenção mensal.
 //
-// Lei nº 14.754/2023 — ver FONTES.md §2.
+// Lei nº 14.754/2023, regulamentada pela **IN RFB nº 2.180, de 11/03/2024**.
+// Ver FONTES.md §2.
+//
+// A IN é o regulamento da lei para pessoa física, e traz duas regras que a lei
+// sozinha não dava: a compensação é **a valor nominal**, sem correção monetária
+// de nenhuma natureza (art. 11), e o rendimento entra no ano-calendário em que
+// é **efetivamente percebido** — regime de caixa, não de competência.
 //
 // ⚠️ ESTE É O ARQUIVO QUE EXISTE PARA IMPEDIR O ERRO MAIS CARO DA FERRAMENTA.
 //
@@ -31,9 +37,23 @@ export function aplicarExterior(vendas) {
   const ganhos = doExterior.filter((v) => v.ganho > 0).reduce((s, v) => s + v.ganho, 0);
   const prejuizos = doExterior.filter((v) => v.ganho < 0).reduce((s, v) => s + v.ganho, 0);
 
-  // No regime do exterior o prejuízo compensa o ganho dentro do mesmo ano —
-  // é rendimento de aplicação financeira, não ganho de capital de bem avulso.
-  // É a diferença de tratamento que mais surpreende quem vem do regime nacional.
+  // No regime do exterior o prejuízo compensa o ganho dentro do MESMO PERÍODO
+  // DE APURAÇÃO — é rendimento de aplicação financeira, não ganho de capital de
+  // bem avulso. É a diferença de tratamento que mais surpreende quem vem do
+  // regime nacional.
+  //
+  // ⚠️ E NÃO ATRAVESSA O ANO. A IN RFB 2.180/2024 manda compensar dentro do
+  // período; o que sobrar vai contra lucros de controladas declaradas na MESMA
+  // DAA, nunca contra lucro de ano seguinte.
+  //
+  // Isto está escrito porque a afirmação contrária circula — um documento de
+  // especificação deste projeto afirmava, com o número da IN do lado, que o
+  // motor compensaria perdas "contra lucros futuros". Não compensa. Quem
+  // implementasse assim faria a ferramenta apurar imposto A MENOS na declaração
+  // de outra pessoa, que é o dano mais caro que este código pode causar.
+  //
+  // Há teste em `prova/armadilhas.test.js` que falha se alguém fizer prejuízo
+  // atravessar o ano.
   const base = Math.max(0, ganhos + prejuizos);
 
   return {
@@ -48,6 +68,10 @@ export function aplicarExterior(vendas) {
     aliquota: ALIQUOTA_EXTERIOR,
     imposto: Math.round(base * ALIQUOTA_EXTERIOR),
     apuracao: 'anual',
-    fonte: 'Lei 14.754/2023',
+    // a compensação vale dentro deste período e não passa para o seguinte
+    compensacao: 'mesmo periodo de apuracao',
+    correcaoDaPerda: 'valor nominal, sem correcao (IN RFB 2.180/2024, art. 11)',
+    momento: 'regime de caixa — o ano em que o rendimento é efetivamente percebido',
+    fonte: 'Lei 14.754/2023, regulamentada pela IN RFB nº 2.180/2024',
   };
 }

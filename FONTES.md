@@ -56,12 +56,41 @@ acha que ela passou.
 
 ## 2. Custódia no exterior — a isenção não se aplica
 
-**Base: Lei nº 14.754/2023.**
+**Base: Lei nº 14.754/2023**, regulamentada pela **IN RFB nº 2.180, de 11/03/2024**.
 <https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2023/lei/l14754.htm>
+<https://www.normaslegais.com.br/legislacao/instrucao-normativa-rfb-2180-2024.htm>
 
 **fato** — a lei equiparou criptoativos custodiados no exterior a aplicações financeiras no
 exterior, tributadas à alíquota de **15%** sobre o rendimento, apurados **anualmente** na
 Declaração de Ajuste.
+
+**fato** — a IN RFB nº 2.180/2024 é o **regulamento da lei para pessoa física**: dispõe sobre
+depósitos não remunerados, moeda em espécie, aplicações financeiras, entidades controladas e
+trusts no exterior — os arts. 1º a 15 da Lei 14.754/2023. Duas regras dela entram no cálculo:
+
+- **compensação a valor nominal**, sem correção monetária nem atualização de qualquer natureza
+  (art. 11);
+- **regime de caixa** — o rendimento entra no ano-calendário em que é **efetivamente percebido**,
+  não no de competência.
+
+### ⚠️ A perda compensa dentro do período — e não contra lucro futuro
+
+**fato** — a perda em aplicação financeira no exterior, comprovada por documentação hábil e
+idônea, compensa rendimento de aplicação financeira no exterior **no mesmo período de apuração**.
+Sobrando perda, o excedente vai contra lucros e dividendos de entidades controladas no exterior
+declarados na **mesma** DAA.
+
+**refutado, e registrado por isso** — circula a afirmação de que o sistema poderia rastrear perdas
+cambiais em corretoras estrangeiras *"para compensá-las contabilmente contra lucros futuros"*. Um
+documento de especificação deste projeto trazia essa frase **com o número da IN ao lado**, o que a
+fazia parecer conferida. **Não é o que a norma diz.** A compensação é intra-período.
+
+Implementar a versão afirmada faria a ferramenta apurar **imposto a menos** na declaração de quem
+a usasse — que é o dano mais caro que este código pode causar. Há teste em
+`prova/armadilhas.test.js` que falha se alguém fizer o prejuízo atravessar o ano.
+
+*O registro fica porque resultado negativo se registra: sem isto, a mesma frase volta daqui a dois
+meses com a mesma aparência de conferida.*
 
 **fato** — nesse regime **não existe limite mensal de isenção**. Os R$ 35.000,00 do item 1 não
 alcançam alienação em exchange estrangeira.
