@@ -105,3 +105,24 @@ test('o rodapé nomeia os dois autores e recusa o papel de orientação', () => 
   assert.match(texto, /Nthnkr "dpna" e AmandaBT/);
   assert.match(texto, /não é orientação tributária/);
 });
+
+test('a implicação vale numa direção só, e o teste diz qual', () => {
+  // Direção verdadeira: desenho diferente ⇒ cálculo diferente.
+  const a = assinar(mesCom(emCentavos(30_000)), catalogo);
+  const b = assinar(mesCom(emCentavos(31_000)), catalogo);
+  if (a.peca !== b.peca) assert.notEqual(a.hex, b.hex, 'peças diferentes exigem códigos diferentes');
+
+  // Direção FALSA, e está aqui para ninguém confiar nela: com 100 peças,
+  // apurações sem relação nenhuma dividem o desenho. Isto acha um par real.
+  const vistos = new Map();
+  let colisao = null;
+  for (let v = 10_000; v < 10_400 && !colisao; v += 1) {
+    const s = assinar(mesCom(emCentavos(v)), catalogo);
+    const antes = vistos.get(s.peca);
+    if (antes && antes.hex !== s.hex) colisao = [antes, s];
+    else vistos.set(s.peca, s);
+  }
+  assert.ok(colisao, 'com 100 peças a colisão de desenho existe, e o projeto a declara');
+  assert.equal(colisao[0].peca, colisao[1].peca, 'mesmo desenho…');
+  assert.notEqual(colisao[0].hex, colisao[1].hex, '…e cálculos diferentes. O código é quem separa');
+});

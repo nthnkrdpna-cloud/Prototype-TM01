@@ -93,6 +93,12 @@ That makes the mark do work instead of decorating: two summaries of the same mon
 drawings are two different calculations, and you can see that at a glance without reading a single
 number. It is a checksum a person can look at.
 
+**It runs one way only, and here is the limit stated rather than left to be found.** A different
+drawing proves a different calculation. The same drawing proves nothing — there are 100 published
+pieces, so by the birthday bound two unrelated months share a drawing about **half the time by the
+twelfth statement**. The 8-character hex code beside it is the real identifier; the drawing is the
+coarse, human-readable proxy. Compare the codes when it matters.
+
 **It is not protection.** It detects nothing, prevents nothing, and anyone who wants to forge it
 can — the code comes from public data through a public function. It is identity and provenance.
 
