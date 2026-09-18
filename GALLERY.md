@@ -28,9 +28,10 @@ Closer looks, 25 pieces each:
 
 [`samples/open-set/`](samples/open-set/) holds **100 SVG files**, roughly a third from each mode.
 
-**They are not taken from the 1,200 above.** They were generated fresh, from a seed that belongs
-to no existing set, and verified by hash against all 2,400 files of the three packs: **zero
-collisions.** The wall shows what exists; the open set shows that the engine keeps going.
+**They are not taken from the 1,200 above.** They were generated fresh, from seeds reserved for
+publication, and checked against all 2,400 files of the three packs — comparing the **artwork**,
+not the file bytes, because colour and metadata differ while a drawing can still be the same.
+**Zero matches.** The wall shows what exists; the open set shows that the engine keeps going.
 
 Each open-set file carries its provenance **in more than one form**. The visible ones:
 

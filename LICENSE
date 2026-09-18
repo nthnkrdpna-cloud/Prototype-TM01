@@ -2,21 +2,40 @@ Copyright (c) 2026 Nthnkr "dpna" and AmandaBT. All rights reserved.
 
 WHAT THIS COVERS
 
-This repository contains sample output from a generative engine — the SVG files under
-samples/sigils/ and samples/sigils-black/, the contact sheet, and the WAV files under
-samples/audio/ — together with the accompanying documentation.
+This repository contains sample output from a generative engine, in three groups, plus the
+accompanying documentation. The groups are treated differently and the difference matters.
+
+  1. SAMPLES — samples/sigils/, samples/sigils-black/, samples/contact-sheet.svg, and the WAV
+     files under samples/audio/.
+
+  2. OPEN SET — the 100 SVG files under samples/open-set/. Generated from seeds reserved for
+     publication; they belong to no set offered for sale.
+
+  3. GALLERY — the raster images under samples/gallery/. These DEPICT pieces that are not
+     published here and are not licensed by this document. They are provided so the engine's
+     output can be seen at scale, for viewing only. No right to use, extract, trace, reproduce
+     or redistribute the depicted pieces is granted by their appearance in these images, and no
+     such right may be inferred from it.
 
 The engine itself is not published here and is not covered by this license.
 
 WHAT YOU MAY DO
 
-You may view, download and study these samples. You may reference them in commentary, review or
-discussion of this work, with attribution to Nthnkr "dpna" and AmandaBT and a link to this
-repository.
+Groups 1 and 2: you may view, download and study these files. You may reference them in
+commentary, review or discussion of this work, with attribution to Nthnkr "dpna" and AmandaBT and
+a link to this repository.
+
+Group 3: you may view these images and reference them in commentary, review or discussion of this
+work, on the same attribution terms. Nothing further.
+
+PROVENANCE
+
+Files in groups 1 and 2 carry their origin inside them, in more than one form. Removing the
+visible parts does not make a file anonymous, and does not affect the terms below.
 
 WHAT YOU MAY NOT DO
 
-The samples are published so that the work can be evaluated. They are not published for reuse.
+These files are published so that the work can be evaluated. They are not published for reuse.
 Without prior written permission you may not:
 
   - redistribute them, altered or unaltered, as your own work or as part of any collection;

@@ -42,8 +42,10 @@ and you ship the whole catalogue — which is why the samples below name theirs.
 
 ## Samples
 
-All samples in this repository were generated with seed **`1618033988`** (the digits of φ). They
-are **new** — none of them belongs to any set that exists elsewhere.
+The 24 pieces below were generated with seed **`1618033988`** (the digits of φ). The open set in
+[`GALLERY.md`](GALLERY.md) uses its own seeds, reserved for publication. Every one of them is
+**new** — none belongs to any set that exists elsewhere, verified by comparing the artwork itself
+against all 2,400 files of the three packs.
 
 | | |
 |---|---|
@@ -66,9 +68,9 @@ random.
 ### Scale
 
 [**`GALLERY.md`**](GALLERY.md) shows **1,200 pieces in a single image** — three composition modes,
-400 each — and opens a set of **100 SVG files**, generated from a fresh seed and verified against
-every existing piece. That is where to look if the question is what the engine does at volume
-rather than what one piece looks like.
+400 each — and opens a set of **100 SVG files**, generated from seeds reserved for publication and
+verified against every existing piece. That is where to look if the question is what the engine
+does at volume rather than what one piece looks like.
 
 ---
 
