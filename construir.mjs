@@ -38,6 +38,9 @@ const MODULOS = [
   'src/fiscal/br/decripto.js',
   'src/fiscal/br/colateral.js',
   'src/fiscal/br/apurar.js',
+  'src/mercado/fibonacci.js',
+  'src/mercado/fluxo.js',
+  'src/mercado/vix.js',
   'src/assinatura.js',
   'src/ui/tela.js',
 ];

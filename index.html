@@ -1714,6 +1714,368 @@ function avisosDe(eventos) {
 function mesDoFechamento(eventos, aaaaMM) {
   return fechar(eventos).meses.find((m) => m.mes === aaaaMM) ?? null;
 }
+/* src/mercado/fibonacci.js */
+// Retrações e projeções de Fibonacci, sobre uma série que a pessoa importa.
+//
+// Página 8 do Blueprint do Arquiteto.
+//
+// ⚠️ O QUE ISTO É, DITO SEM MÍSTICA: são **linhas horizontais em frações de um
+// movimento que já aconteceu**. Nada aqui prevê preço. O valor que têm é o de
+// marcar, no gráfico, os pontos em que muita gente olha — e comportamento de
+// muita gente olhando o mesmo ponto é a única coisa que essas linhas medem.
+//
+// Escrever mais que isso seria vender adivinhação. A página 7 do Blueprint diz
+// a frase certa e ela fica: *"não é magia preditiva; é a prova matemática da
+// repetitividade do comportamento humano."*
+//
+// ⚠️ E O 0,500 NÃO É RAZÃO DE FIBONACCI. É o retorno à metade, de Dow — entrou
+// na lista por uso, não por derivação. Isto já está registrado em D53 e é
+// repetido aqui porque a lista inteira costuma ser apresentada como se as seis
+// frações tivessem a mesma origem, e não têm. Cada nível abaixo carrega de onde
+// veio.
+//
+// SEM REDE. A página 8 fala em API da Cboe. Esta ferramenta não faz requisição
+// nenhuma — os níveis são calculados sobre a série que a pessoa colar.
+
+/**
+ * Os níveis, cada um com a sua procedência.
+ *
+ * `fracao` é quanto do movimento o nível retrai. `origem` diz de onde a fração
+ * vem, e é o campo que impede a lista de virar numerologia uniforme.
+ */
+const NIVEIS = [
+  { fracao: 0.236, origem: 'fibonacci', nota: 'φ⁻³, aproximadamente' },
+  { fracao: 0.382, origem: 'fibonacci', nota: 'φ⁻², aproximadamente' },
+  { fracao: 0.500, origem: 'dow', nota: 'retorno à metade — NÃO é razão de Fibonacci' },
+  { fracao: 0.618, origem: 'fibonacci', nota: 'φ⁻¹, a razão áurea invertida' },
+  { fracao: 0.786, origem: 'derivado', nota: '√0,618 — a raiz da razão áurea invertida' },
+];
+
+/** A projeção clássica, além do movimento inteiro. */
+const PROJECOES = [
+  { fracao: 1.618, origem: 'fibonacci', nota: 'φ' },
+  { fracao: 2.618, origem: 'fibonacci', nota: 'φ²' },
+];
+
+/**
+ * As frações conferidas contra φ, e não copiadas de uma lista.
+ *
+ * A Ordem deste projeto proíbe número escolhido a olho. Estas três descendem de
+ * φ por construção, e a função existe para que isso seja **conferível** em vez
+ * de afirmado — há teste que compara a lista com o cálculo.
+ */
+function derivadasDePhi() {
+  return {
+    0.382: Math.round((1 / PHI ** 2) * 1000) / 1000,
+    0.618: Math.round((1 / PHI) * 1000) / 1000,
+    0.786: Math.round(Math.sqrt(1 / PHI) * 1000) / 1000,
+    1.618: Math.round(PHI * 1000) / 1000,
+  };
+}
+
+/**
+ * Retrações de um movimento de `inicio` a `fim`.
+ *
+ * Funciona nos dois sentidos: movimento de alta retrai para baixo, de baixa
+ * retrai para cima. Quem decide o que é topo e o que é fundo é quem marcou os
+ * dois pontos — a ferramenta não adivinha isso na série.
+ */
+function retracoes(inicio, fim) {
+  exigirNumero(inicio, 'início');
+  exigirNumero(fim, 'fim');
+  if (inicio === fim) throw new RangeError('início e fim iguais: não há movimento a retrair');
+
+  const amplitude = fim - inicio;
+  const alta = amplitude > 0;
+
+  return {
+    inicio,
+    fim,
+    amplitude,
+    sentido: alta ? 'alta' : 'baixa',
+    niveis: NIVEIS.map(({ fracao, origem, nota }) => ({
+      fracao,
+      origem,
+      nota,
+      // retrai a partir do fim, de volta na direção do início
+      preco: arredondar(fim - amplitude * fracao),
+    })),
+    projecoes: PROJECOES.map(({ fracao, origem, nota }) => ({
+      fracao,
+      origem,
+      nota,
+      preco: arredondar(inicio + amplitude * fracao),
+    })),
+    aviso: 'Linhas em frações de um movimento passado. Não preveem preço, e '
+      + 'o nível 0,500 não é razão de Fibonacci.',
+  };
+}
+
+/**
+ * O maior e o menor de uma série, com as posições.
+ *
+ * É o que se usa para sugerir o movimento a marcar — **sugerir**, porque
+ * extremo de janela não é topo nem fundo de tendência, e confundir os dois é o
+ * jeito mais rápido de traçar retração sobre movimento que não existiu.
+ */
+function extremos(serie) {
+  if (!Array.isArray(serie) || serie.length < 2) {
+    throw new RangeError('a série precisa de ao menos dois pontos');
+    }
+  let min = { valor: Infinity, i: -1 };
+  let max = { valor: -Infinity, i: -1 };
+  serie.forEach((v, i) => {
+    exigirNumero(v, `ponto ${i}`);
+    if (v < min.valor) min = { valor: v, i };
+    if (v > max.valor) max = { valor: v, i };
+  });
+  return {
+    minimo: min,
+    maximo: max,
+    // a ordem em que apareceram diz se a janela subiu ou caiu
+    sentidoDaJanela: max.i > min.i ? 'alta' : 'baixa',
+    aviso: 'Extremos da janela importada, não topo e fundo de tendência.',
+  };
+}
+
+const arredondar = (v) => Math.round(v * 100) / 100;
+
+function exigirNumero(v, nome) {
+  if (!Number.isFinite(v)) throw new TypeError(`${nome} não é um número finito`);
+}
+/* src/mercado/fluxo.js */
+// Order flow: delta, absorção, POC e área de valor.
+//
+// Página 9 do Blueprint do Arquiteto.
+//
+// O QUE ISTO MEDE, e é bem menos do que costuma ser vendido: uma vela comum diz
+// abertura, máxima, mínima e fechamento. Ela **não diz a que preço o volume foi
+// negociado por dentro**. O footprint diz — e é só isso. O resto é leitura.
+//
+// ⚠️ ABSORÇÃO NÃO É CERTEZA DE REVERSÃO. Volume alto com preço parado significa
+// que houve muita negociação sem o preço andar; a explicação usual é que alguém
+// grande absorveu a pressão do outro lado. **É uma explicação plausível, não um
+// fato observado** — não dá para ver quem estava do outro lado. A página 9 fala
+// em "baleias"; o que os números mostram é volume e imobilidade de preço, e
+// quem chama isso de baleia está interpretando.
+//
+// Por isso `absorcao()` devolve um indício com força medida, nunca um sinal.
+//
+// SEM REDE. Calcula sobre a série que a pessoa importar.
+
+/**
+ * Delta líquido: comprado menos vendido.
+ *
+ * Positivo quer dizer que mais volume saiu na ponta compradora — agressão de
+ * compra. É a medida mais direta do módulo, e a menos interpretativa.
+ */
+function delta(niveis) {
+  exigirNiveis(niveis);
+  const comprado = niveis.reduce((s, n) => s + n.compra, 0);
+  const vendido = niveis.reduce((s, n) => s + n.venda, 0);
+  const total = comprado + vendido;
+  return {
+    comprado,
+    vendido,
+    delta: comprado - vendido,
+    total,
+    // o delta em proporção do volume, que é o que compara vela com vela
+    deltaRelativo: total === 0 ? 0 : Math.round(((comprado - vendido) / total) * 1000) / 1000,
+  };
+}
+
+/**
+ * POC — o preço em que mais volume foi negociado.
+ *
+ * Empate resolve pelo preço mais baixo, e a escolha é arbitrária: está aqui
+ * declarada para o resultado ser determinístico, não porque o preço mais baixo
+ * signifique alguma coisa.
+ */
+function poc(niveis) {
+  exigirNiveis(niveis);
+  let melhor = null;
+  for (const n of niveis) {
+    const v = n.compra + n.venda;
+    if (!melhor || v > melhor.volume || (v === melhor.volume && n.preco < melhor.preco)) {
+      melhor = { preco: n.preco, volume: v };
+    }
+  }
+  return melhor;
+}
+
+/**
+ * Área de valor: a faixa que concentra `parte` do volume, ao redor do POC.
+ *
+ * 70% é o valor usual, herdado do Market Profile — **e é convenção, não
+ * derivação**. Está como parâmetro por isso, e o padrão vem declarado.
+ */
+const PARTE_PADRAO = 0.70;
+
+function areaDeValor(niveis, parte = PARTE_PADRAO) {
+  exigirNiveis(niveis);
+  if (!(parte > 0 && parte <= 1)) throw new RangeError('a parte tem de ficar entre 0 e 1');
+
+  const ordenados = [...niveis].sort((a, b) => a.preco - b.preco);
+  const volumeDe = (n) => n.compra + n.venda;
+  const total = ordenados.reduce((s, n) => s + volumeDe(n), 0);
+  if (total === 0) return { vah: null, val: null, poc: null, volumeIncluido: 0, parte };
+
+  const centro = ordenados.findIndex((n) => n.preco === poc(niveis).preco);
+  let baixo = centro;
+  let alto = centro;
+  let acumulado = volumeDe(ordenados[centro]);
+
+  // cresce para o lado que tiver mais volume, até cobrir a parte pedida
+  while (acumulado / total < parte && (baixo > 0 || alto < ordenados.length - 1)) {
+    const abaixo = baixo > 0 ? volumeDe(ordenados[baixo - 1]) : -1;
+    const acima = alto < ordenados.length - 1 ? volumeDe(ordenados[alto + 1]) : -1;
+    if (acima >= abaixo) { alto += 1; acumulado += acima; }
+    else { baixo -= 1; acumulado += abaixo; }
+  }
+
+  return {
+    val: ordenados[baixo].preco,
+    vah: ordenados[alto].preco,
+    poc: poc(niveis).preco,
+    volumeIncluido: acumulado,
+    proporcaoReal: Math.round((acumulado / total) * 1000) / 1000,
+    parte,
+    nota: 'A faixa de 70% é convenção do Market Profile, não derivação.',
+  };
+}
+
+/**
+ * Indício de absorção: volume alto com preço parado.
+ *
+ * `forca` é o quanto o volume do nível supera a média — e é indício, não sinal.
+ * O campo `leitura` diz isso por extenso, para não se perder na tela.
+ */
+function absorcao(niveis, { multiplo = 2 } = {}) {
+  exigirNiveis(niveis);
+  const volumes = niveis.map((n) => n.compra + n.venda);
+  const media = volumes.reduce((a, b) => a + b, 0) / volumes.length;
+  if (media === 0) return [];
+
+  return niveis
+    .map((n, i) => {
+      const volume = volumes[i];
+      const desequilibrio = Math.abs(n.compra - n.venda) / (volume || 1);
+      return {
+        preco: n.preco,
+        volume,
+        forca: Math.round((volume / media) * 100) / 100,
+        // muito volume e pouca diferença entre os lados: os dois se encontraram aqui
+        equilibrado: desequilibrio < 0.2,
+      };
+    })
+    .filter((n) => n.forca >= multiplo && n.equilibrado)
+    .map((n) => ({
+      ...n,
+      leitura: 'Indício, não sinal: houve muito volume sem o preço andar. A '
+        + 'explicação usual é absorção por participante grande, mas quem estava '
+        + 'do outro lado não é observável nestes dados.',
+    }));
+}
+
+function exigirNiveis(niveis) {
+  if (!Array.isArray(niveis) || niveis.length === 0) {
+    throw new RangeError('é preciso ao menos um nível de preço');
+  }
+  for (const n of niveis) {
+    if (!Number.isFinite(n?.preco)) throw new TypeError('nível sem preço numérico');
+    if (!Number.isFinite(n?.compra) || !Number.isFinite(n?.venda)) {
+      throw new TypeError(`nível ${n.preco} sem volume de compra e venda`);
+    }
+    if (n.compra < 0 || n.venda < 0) throw new RangeError('volume não pode ser negativo');
+  }
+}
+/* src/mercado/vix.js */
+// Volatilidade: a leitura do termômetro, e o que ela não diz.
+//
+// Página 8 do Blueprint do Arquiteto, "o Índice do Medo".
+//
+// O QUE O VIX É: a volatilidade **implícita** esperada para os trinta dias
+// seguintes, extraída dos preços de opções do S&P 500. Ou seja — é o quanto o
+// mercado está PAGANDO por proteção agora, não uma previsão de queda.
+//
+// ⚠️ ALTO NÃO QUER DIZER "VAI CAIR". Quer dizer que opções estão caras porque
+// muita gente quer proteção ao mesmo tempo. Historicamente esses momentos
+// coincidem com quedas já em curso — a leitura é **concomitante, não
+// antecedente**. Um módulo que tratasse VIX alto como sinal de venda estaria
+// lendo o termômetro como se fosse o remédio.
+//
+// ⚠️ E ELE MEDE O MERCADO AMERICANO. Aplicar a leitura a uma carteira de
+// criptoativo ou de ação brasileira é analogia, não medida. A correlação
+// existe e não é um. Está dito no resultado.
+//
+// SEM REDE. A página 8 fala em conexão à Cboe; aqui o valor é digitado ou
+// importado. Nenhuma requisição sai desta ferramenta.
+
+/**
+ * As faixas, e de onde elas vêm.
+ *
+ * ⚠️ Estes cortes são **convenção de mercado, não derivação** — não descendem
+ * de φ nem de norma nenhuma. Ficam nomeados e visíveis exatamente para não
+ * parecerem calculados: a Ordem deste projeto proíbe número escolhido a olho
+ * que se disfarce de número derivado. Este é escolhido, e diz que é.
+ */
+const FAIXAS_VIX = [
+  { ate: 12, nome: 'muito baixa', leitura: 'complacência — proteção barata, poucos a querendo' },
+  { ate: 20, nome: 'normal', leitura: 'faixa em que o índice passa a maior parte do tempo' },
+  { ate: 30, nome: 'elevada', leitura: 'tensão — o custo de proteção subiu' },
+  { ate: Infinity, nome: 'extrema', leitura: 'pânico em curso, com proteção cara' },
+];
+
+/**
+ * Lê um valor de volatilidade e devolve a faixa, com as ressalvas juntas.
+ *
+ * As ressalvas vão **no objeto**, não num rodapé: quem consumir isto numa tela
+ * ou num CSV leva o aviso junto do número, que é onde ele serve.
+ */
+function lerVolatilidade(valor) {
+  if (!Number.isFinite(valor) || valor < 0) {
+    throw new RangeError('a volatilidade tem de ser um número não negativo');
+  }
+  const faixa = FAIXAS_VIX.find((f) => valor <= f.ate);
+
+  return {
+    valor,
+    faixa: faixa.nome,
+    leitura: faixa.leitura,
+    ressalvas: [
+      'Volatilidade implícita não é previsão: mede o preço da proteção agora, '
+        + 'não a direção do preço depois.',
+      'A leitura é concomitante, não antecedente — o índice sobe junto com a '
+        + 'queda, raramente antes dela.',
+      'O VIX mede o mercado americano. Aplicar a carteira brasileira ou a '
+        + 'criptoativo é analogia, não medida.',
+    ],
+    origemDasFaixas: 'convenção de mercado, não derivação',
+  };
+}
+
+/**
+ * Quanto reduzir de exposição conforme a volatilidade sobe.
+ *
+ * ⚠️ ISTO NÃO É RECOMENDAÇÃO DE ALOCAÇÃO. É a aritmética de uma regra que a
+ * própria pessoa define: ela diz qual fração quer manter em cada faixa, e o
+ * módulo faz a conta. Sem regra informada, não devolve número nenhum — porque
+ * inventar a fração seria a ferramenta escolhendo risco por alguém.
+ */
+function porFaixa(valor, regra) {
+  const { faixa } = lerVolatilidade(valor);
+  if (!regra || !(faixa in regra)) {
+    return {
+      faixa,
+      fracao: null,
+      porque: 'nenhuma regra informada para esta faixa — a ferramenta não '
+        + 'inventa fração de exposição, porque isso seria escolher risco por você',
+    };
+  }
+  const fracao = regra[faixa];
+  if (!(fracao >= 0 && fracao <= 1)) throw new RangeError('a fração tem de ficar entre 0 e 1');
+  return { faixa, fracao, porque: 'regra sua, aplicada à faixa lida' };
+}
 /* src/assinatura.js */
 // A assinatura: cada apuração fechada ganha o seu próprio sigilo.
 //
