@@ -14,6 +14,7 @@
 // E não é o mesmo R$ 35.000 da DeCripto. Ver `decripto.js`.
 
 import { REGIME } from './regime.js';
+import { impostoSobreGanho, detalharGanho } from './ganho.js';
 
 /** Lei 9.250/1995, art. 22, II. Em centavos. */
 export const TETO_ISENCAO = 3_500_000;
@@ -49,7 +50,12 @@ export function aplicarIsencao(vendas) {
     prejuizo: prejuizos,
     // quando isento, a base é zero mesmo havendo ganho — é esse o benefício
     baseTributavel: isento ? 0 : ganhos,
-    fonte: 'Lei 9.250/1995, art. 22, II',
+    // O IMPOSTO, que até agora a ferramenta calculava a base e não dizia.
+    // Faixas marginais da Lei 13.259/2016 — ver `ganho.js`, e o motivo de não
+    // ser alíquota única está escrito lá com o número da diferença.
+    imposto: isento ? 0 : impostoSobreGanho(ganhos),
+    detalhe: isento ? null : detalharGanho(ganhos),
+    fonte: 'Lei 9.250/1995, art. 22, II; imposto pela Lei 13.259/2016, art. 1º',
   };
 }
 

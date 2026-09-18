@@ -1075,6 +1075,101 @@ function certezaDe(custodia) {
 
 /** As custódias cujo regime é interpretação, não fato. A tela lista estas. */
 const INTERPRETADAS = Object.keys(MAPA).filter((c) => MAPA[c].certeza === 'interpretacao');
+/* src/fiscal/br/ganho.js */
+// O imposto sobre ganho de capital, no regime nacional.
+//
+// Lei nº 13.259/2016, art. 1º — em vigor desde 1º/01/2017.
+//
+// ⚠️ AS FAIXAS SÃO MARGINAIS, E ESTE É O ERRO FÁCIL DE COMETER.
+//
+// A lei diz "sobre a PARCELA dos ganhos que exceder" — ou seja, cada faixa
+// incide só sobre o pedaço do ganho que cai dentro dela, como o imposto de
+// renda da folha. Não é um degrau que muda a alíquota do total.
+//
+// A diferença é enorme e aparece já no primeiro real acima de R$ 5 milhões:
+//
+//   marginal (certo)  R$ 5.000.001 → 5.000.000 × 15% + 1 × 17,5% = R$ 750.000,18
+//   único   (errado)  R$ 5.000.001 → 5.000.001 × 17,5%           = R$ 875.000,18
+//
+// Cento e vinte e cinco mil reais de diferença por causa de um real a mais. Um
+// sistema que aplicasse alíquota única ao total puniria quem cruzou a faixa por
+// pouco, e o resultado pareceria plausível na tela.
+//
+// Há teste que falha se alguém trocar isto por uma alíquota só.
+
+/**
+ * Faixa: até `ate` CENTAVOS de ganho, paga `aliquota`. A última é aberta.
+ *
+ * Os tetos estão em centavos, como todo dinheiro deste projeto — R$ 5 milhões
+ * são 500.000.000 de centavos. A primeira versão deste arquivo escreveu
+ * `500_000_000_00`, que é R$ 500 milhões: **cem vezes o valor certo**, e o
+ * efeito era pôr todo mundo na primeira faixa para sempre. Os separadores de
+ * milhar do JavaScript deixam esse erro invisível a olho nu, e foi o teste das
+ * faixas somadas que pegou.
+ */
+const FAIXAS = [
+  { ate: 500_000_000, aliquota: 0.15 },     // até R$ 5 milhões
+  { ate: 1_000_000_000, aliquota: 0.175 },  // de R$ 5 a 10 milhões
+  { ate: 3_000_000_000, aliquota: 0.20 },   // de R$ 10 a 30 milhões
+  { ate: Infinity, aliquota: 0.225 },       // acima de R$ 30 milhões
+];
+
+/** A alíquota da primeira faixa, que é a que alcança quase todo mundo. */
+const ALIQUOTA_GANHO_NACIONAL = FAIXAS[0].aliquota;
+
+/**
+ * O imposto de um ganho, somando faixa por faixa.
+ *
+ * Ganho zero ou negativo não gera imposto — prejuízo não tem base negativa, e
+ * ganho de capital de bem não compensa prejuízo de mês nenhum.
+ */
+function impostoSobreGanho(ganho) {
+  if (!Number.isFinite(ganho) || ganho <= 0) return 0;
+
+  let imposto = 0;
+  let piso = 0;
+  for (const { ate, aliquota } of FAIXAS) {
+    if (ganho <= piso) break;
+    const parcela = Math.min(ganho, ate) - piso;
+    imposto += parcela * aliquota;
+    piso = ate;
+  }
+  return Math.round(imposto);
+}
+
+/**
+ * O detalhe faixa a faixa, para a tela poder mostrar de onde veio o número.
+ *
+ * Existe porque um imposto de seis dígitos sem explicação é um número que a
+ * pessoa não tem como conferir — e conferir é do contribuinte.
+ */
+function detalharGanho(ganho) {
+  if (!Number.isFinite(ganho) || ganho <= 0) {
+    return { ganho: Math.max(0, ganho || 0), imposto: 0, faixas: [] };
+  }
+  const faixas = [];
+  let piso = 0;
+  for (const { ate, aliquota } of FAIXAS) {
+    if (ganho <= piso) break;
+    const parcela = Math.min(ganho, ate) - piso;
+    faixas.push({
+      de: piso,
+      ate: ate === Infinity ? null : ate,
+      parcela,
+      aliquota,
+      imposto: Math.round(parcela * aliquota),
+    });
+    piso = ate;
+  }
+  return {
+    ganho,
+    imposto: impostoSobreGanho(ganho),
+    faixas,
+    // a alíquota que a pessoa "sentiu", que não é a da faixa em que ela caiu
+    aliquotaEfetiva: Math.round((impostoSobreGanho(ganho) / ganho) * 10000) / 10000,
+    fonte: 'Lei 13.259/2016, art. 1º',
+  };
+}
 /* src/fiscal/br/isencao.js */
 // Isenção mensal de bens de pequeno valor.
 //
@@ -1125,7 +1220,12 @@ function aplicarIsencao(vendas) {
     prejuizo: prejuizos,
     // quando isento, a base é zero mesmo havendo ganho — é esse o benefício
     baseTributavel: isento ? 0 : ganhos,
-    fonte: 'Lei 9.250/1995, art. 22, II',
+    // O IMPOSTO, que até agora a ferramenta calculava a base e não dizia.
+    // Faixas marginais da Lei 13.259/2016 — ver `ganho.js`, e o motivo de não
+    // ser alíquota única está escrito lá com o número da diferença.
+    imposto: isento ? 0 : impostoSobreGanho(ganhos),
+    detalhe: isento ? null : detalharGanho(ganhos),
+    fonte: 'Lei 9.250/1995, art. 22, II; imposto pela Lei 13.259/2016, art. 1º',
   };
 }
 
@@ -1146,6 +1246,124 @@ function folgaDoMes(vendasNacionaisDoMes) {
     teto: TETO_ISENCAO,
     folga: Math.max(0, TETO_ISENCAO - alienado),
     estourou: alienado > TETO_ISENCAO,
+  };
+}
+/* src/fiscal/br/escudo-fiscal.js */
+// O Tax Shield: o que a folga do teto faz com o imposto de uma venda.
+//
+// Página 11 do Blueprint do Arquiteto, construída como pedida.
+//
+// O QUE ELE FAZ: a pessoa diz "quero vender tanto". O módulo mostra o que
+// acontece se vender tudo agora, e o que aconteceria se a venda fosse partida
+// entre este mês e os seguintes. Os dois números lado a lado, sem conselho.
+//
+// ⚠️ E O QUE ELE NÃO FAZ, que é a linha que separa calculadora de consultoria:
+// ele **não bloqueia** venda nenhuma, **não executa** nada e **não recomenda**
+// esperar. O Blueprint fala em "o TM01 bloqueia/fraciona a venda"; aqui ele
+// CALCULA o efeito de fracionar, e quem fraciona é o Artesão. Software que
+// bloqueia a operação de alguém decidiu no lugar dessa pessoa.
+//
+// A LEGALIDADE, dita por inteiro: não existe regra de *wash sale* para
+// criptoativo no Brasil. Vender dentro da isenção e recomprar não é infração, e
+// partir uma venda entre meses também não. O que existe é a diferença entre
+// mostrar a conta e mandar fazer — e este arquivo faz a primeira.
+
+/**
+ * Simula uma venda no regime nacional, inteira e partida.
+ *
+ * `jaAlienado` é o que já saiu neste mês — sem isso a folga é fantasia.
+ * `custoDaPosicao` e `quantidadePossuida` vêm da carteira; o ganho proporcional
+ * sai deles, não de um lucro que a pessoa estime de cabeça.
+ */
+function simular({
+  jaAlienado = 0,
+  valorPretendido,
+  custoDaPosicao,
+  quantidadePossuida,
+  quantidadeVendida,
+}) {
+  if (valorPretendido <= 0) throw new RangeError('o valor pretendido tem de ser maior que zero');
+  if (quantidadeVendida <= 0 || quantidadeVendida > quantidadePossuida) {
+    throw new RangeError('quantidade vendida fora da posição');
+  }
+
+  const folga = Math.max(0, TETO_ISENCAO - jaAlienado);
+  const custo = proporcao(custoDaPosicao, quantidadeVendida, quantidadePossuida);
+  const ganho = valorPretendido - custo;
+
+  // De uma vez: se o total do mês passar do teto, o ganho INTEIRO é tributado —
+  // não só o que excedeu. É a parte que mais surpreende.
+  const totalSeVenderTudo = jaAlienado + valorPretendido;
+  const estoura = totalSeVenderTudo > TETO_ISENCAO;
+  const impostoDeUmaVez = estoura && ganho > 0
+    ? Math.round(ganho * ALIQUOTA_GANHO_NACIONAL)
+    : 0;
+
+  return {
+    folga,
+    valorPretendido,
+    custo,
+    ganho,
+    deUmaVez: {
+      alienadoNoMes: totalSeVenderTudo,
+      estoura,
+      isento: !estoura,
+      imposto: impostoDeUmaVez,
+    },
+    partida: partir({ jaAlienado, valorPretendido, ganho }),
+    // dito no objeto para não se perder quando isto virar tela ou CSV
+    natureza: 'simulacao',
+    aviso: 'Mostra o efeito de duas escolhas. Não bloqueia, não executa e não '
+      + 'recomenda nenhuma delas — decidir é seu.',
+    fonte: 'Lei 9.250/1995, art. 22, II',
+  };
+}
+
+/**
+ * Como a venda se distribui se for partida para caber na isenção.
+ *
+ * Devolve as parcelas e em quantos meses-calendário elas caberiam. **Não diz
+ * "espere"** — diz "assim caberia", que é outra frase.
+ */
+function partir({ jaAlienado = 0, valorPretendido, ganho = 0 }) {
+  const parcelas = [];
+  let restante = valorPretendido;
+  let usadoNoMesAtual = jaAlienado;
+
+  // guarda contra laço infinito: valor pretendido grande com teto pequeno
+  while (restante > 0 && parcelas.length < 600) {
+    const cabe = Math.max(0, TETO_ISENCAO - usadoNoMesAtual);
+    const parcela = Math.min(restante, cabe);
+    parcelas.push(parcela);
+    restante -= parcela;
+    usadoNoMesAtual = 0;   // a partir do segundo mês, a folga é o teto inteiro
+  }
+
+  const completa = restante === 0;
+  return {
+    completa,
+    meses: parcelas.length,
+    parcelas,
+    // partindo assim, toda parcela fica dentro do teto — logo, nada é tributado
+    impostoSeIsento: completa ? 0 : null,
+    ganhoEnvolvido: ganho,
+    // ⚠️ o que a simulação NÃO sabe, e ignorar isso é o erro clássico
+    ressalvas: [
+      'O preço de um mês não é o preço do outro. A simulação usa o valor de hoje '
+        + 'para todas as parcelas, e o mercado não garante nada disso.',
+      'Adiar parte da venda é ficar exposto à variação do ativo no período.',
+      'A isenção vale por mês-calendário, não por trinta dias.',
+    ],
+  };
+}
+
+/** Quanto ainda cabe no teto deste mês. A pergunta que vem antes de tudo. */
+function folgaDoTeto(jaAlienado = 0) {
+  return {
+    teto: TETO_ISENCAO,
+    jaAlienado,
+    folga: Math.max(0, TETO_ISENCAO - jaAlienado),
+    estourou: jaAlienado > TETO_ISENCAO,
   };
 }
 /* src/fiscal/br/exterior.js */
@@ -1298,6 +1516,121 @@ function custodiaDe(op) {
 function valorDe(op) {
   return op.tipo === 'transferencia' ? (op.custo ?? 0) : op.valor;
 }
+/* src/fiscal/br/colateral.js */
+// Empréstimo com criptoativo em garantia: liquidez sem alienar.
+//
+// Página 12 do Blueprint do Arquiteto, construída como pedida.
+//
+// A PREMISSA CENTRAL É SÓLIDA: empréstimo não é alienação, e sem alienação não
+// há ganho de capital a apurar. Dar o ativo em garantia e tomar emprestado não
+// realiza ganho nenhum — o ativo continua sendo seu, só está travado.
+//
+// ⚠️ MAS A FRASE "SEM VENDA, SEM IMPOSTO" É CURTA DEMAIS, e as três coisas que
+// faltam nela estão no resultado deste módulo, não num rodapé que ninguém lê:
+//
+//   1. converter a stablecoin para real É alienação de criptoativo. O ganho
+//      costuma ser perto de zero, porque ela foi adquirida no empréstimo e
+//      convertida em seguida — mas é operação, e entra na conta do mês;
+//   2. liquidação forçada realiza TUDO de uma vez, no pior momento possível e
+//      sem caixa para o imposto que ela gera;
+//   3. desde 1º/07/2026 a IN RFB nº 2.291/2025 exige detalhar operações em
+//      DeFi. O que era opaco à fiscalização deixou de ser.
+//
+// O módulo simula. **Não conecta em protocolo nenhum, não assina transação e
+// não executa nada** — não há requisição de rede em lugar algum desta
+// ferramenta, e isso é requisito verificado no navegador.
+
+/**
+ * Simula o empréstimo colateralizado.
+ *
+ * `ltv` é a razão entre o emprestado e a garantia (*loan-to-value*), em fração:
+ * 0,5 quer dizer emprestar metade do valor do colateral. `ltvLiquidacao` é o
+ * ponto em que o protocolo liquida — acima dele a posição é vendida sozinha.
+ */
+function simularColateral({
+  valorDoColateral,
+  custoDoColateral,
+  ltv = 0.5,
+  ltvLiquidacao = 0.8,
+  jaAlienadoNoMes = 0,
+}) {
+  if (valorDoColateral <= 0) throw new RangeError('o colateral tem de valer mais que zero');
+  if (!(ltv > 0 && ltv < 1)) throw new RangeError('o LTV tem de ficar entre 0 e 1');
+  if (!(ltvLiquidacao > ltv && ltvLiquidacao <= 1)) {
+    throw new RangeError('o LTV de liquidação tem de ser maior que o LTV tomado');
+  }
+
+  const emprestado = Math.round(valorDoColateral * ltv);
+
+  // O preço em que o protocolo liquida: quando a dívida vira `ltvLiquidacao`
+  // do colateral, ou seja, quando o colateral cai para `emprestado/ltvLiq`.
+  const valorDeLiquidacao = Math.round(emprestado / ltvLiquidacao);
+  const quedaAteLiquidar = 1 - valorDeLiquidacao / valorDoColateral;
+
+  // Se liquidar, a venda forçada é do colateral inteiro pelo valor de
+  // liquidação — e o ganho sai do custo original, não do que sobrou.
+  const ganhoSeLiquidar = valorDeLiquidacao - custoDoColateral;
+
+  return {
+    valorDoColateral,
+    emprestado,
+    ltv,
+    ltvLiquidacao,
+
+    // o que a página 12 afirma, e é verdade: tomar o empréstimo não aliena
+    aoTomar: {
+      alienou: false,
+      ganhoRealizado: 0,
+      imposto: 0,
+      porque: 'empréstimo com garantia não é alienação, e sem alienação não há '
+        + 'ganho de capital a apurar',
+    },
+
+    // o que a frase curta esquece
+    aoConverterParaReal: {
+      alienou: true,
+      valor: emprestado,
+      ganhoEsperado: 'perto de zero — a stablecoin foi adquirida e convertida em seguida',
+      contaNoMes: true,
+      somaAoAlienado: jaAlienadoNoMes + emprestado,
+      porque: 'converter stablecoin em real é alienação de criptoativo: o ganho é '
+        + 'pequeno, mas a OPERAÇÃO entra na conta do mês',
+    },
+
+    seLiquidar: {
+      valorDeLiquidacao,
+      quedaNecessaria: Math.round(quedaAteLiquidar * 1000) / 10,   // em %
+      ganhoRealizado: ganhoSeLiquidar,
+      alienouTudoDeUmaVez: true,
+      porque: 'a liquidação é venda forçada: realiza o ganho inteiro, no pior '
+        + 'momento, e sem caixa reservado para o imposto que ela gera',
+    },
+
+    decripto: {
+      conta: CONTAM.includes('exterior') || CONTAM.includes('autocustodia'),
+      porque: 'operação em DeFi entra no detalhamento exigido pela IN RFB nº '
+        + '2.291/2025, em vigor desde 1º/07/2026',
+    },
+
+    natureza: 'simulacao',
+    executa: false,
+    aviso: 'Simulação. Não conecta em protocolo, não assina transação e não '
+      + 'executa nada. Decidir e executar é seu.',
+  };
+}
+
+/**
+ * Quanto o colateral pode cair antes de liquidar, dado um LTV.
+ *
+ * É a pergunta que decide se a operação é sensata, e é a que menos se faz.
+ */
+function margemAteLiquidar(ltv, ltvLiquidacao = 0.8) {
+  if (!(ltv > 0 && ltv < ltvLiquidacao)) return null;
+  return Math.round((1 - ltv / ltvLiquidacao) * 1000) / 10;
+}
+
+/** A parte do colateral que corresponde a um valor emprestado. */
+const colateralPara = (emprestado, ltv) => proporcao(emprestado, 1000, Math.round(ltv * 1000));
 /* src/fiscal/br/apurar.js */
 // O fechamento: pega os eventos e devolve o mês e o ano, prontos para a tela.
 //
