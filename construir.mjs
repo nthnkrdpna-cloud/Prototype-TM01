@@ -29,6 +29,7 @@ const MODULOS = [
   'src/nucleo/carteira.js',
   'src/nucleo/entrada.js',
   'src/nucleo/apuracao.js',
+  'src/nucleo/escudo.js',
   'src/fiscal/br/regime.js',
   'src/fiscal/br/isencao.js',
   'src/fiscal/br/exterior.js',

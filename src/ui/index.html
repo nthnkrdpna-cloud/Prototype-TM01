@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Apuração de cripto — Prototype-TM01</title>
-<meta name="description" content="Calculadora de imposto de criptoativos para pessoa física no Brasil. Roda no navegador, nada sai da sua máquina.">
+<title>Prototype-TM01 — apuração de cripto e reserva de emergência</title>
+<meta name="description" content="Apuração de imposto de criptoativos e cálculo de reserva de emergência, para pessoa física no Brasil. Roda no navegador, nada sai da sua máquina.">
 <link rel="stylesheet" href="estilo.css">
 </head>
 <body>
@@ -13,10 +13,18 @@
 <header>
   <img src="samples/open-set/OPEN-A-001.svg" alt="">
   <div>
-    <h1>Apuração de cripto</h1>
-    <p>Custo médio, isenção e DeCripto — no seu navegador, sem enviar nada para lugar nenhum.</p>
+    <h1>Prototype-TM01</h1>
+    <p>Apuração de cripto e reserva de emergência — no seu navegador,
+    sem enviar nada para lugar nenhum.</p>
   </div>
 </header>
+
+<nav class="abas">
+  <button id="aba-apuracao" class="aba ativa" type="button">Apuração de cripto</button>
+  <button id="aba-escudo" class="aba" type="button">Escudo — reserva de emergência</button>
+</nav>
+
+<div id="painel-apuracao">
 
 <section>
   <h2>Suas operações</h2>
@@ -36,6 +44,40 @@
 </section>
 
 <div id="saida"></div>
+
+</div><!-- painel-apuracao -->
+
+<div id="painel-escudo" hidden>
+
+<section>
+  <h2>Quanto de reserva você precisa</h2>
+  <p style="margin-top:0;color:var(--fraco);font-size:var(--em1)">
+    O <strong>custo vital</strong> é o que não dá para cortar num mês ruim — moradia, comida,
+    remédio, transporte para trabalhar. Não é o gasto total do mês. A diferença entre os dois
+    é quem decide se a reserva vai ser realista ou fantasia.
+  </p>
+
+  <div class="campos">
+    <label>Custo vital por mês
+      <input id="custo" type="text" inputmode="decimal" placeholder="3.000,00" autocomplete="off">
+    </label>
+    <label>Já guardado
+      <input id="guardado" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off">
+    </label>
+    <label>Consigo guardar por mês
+      <input id="ritmo" type="text" inputmode="decimal" placeholder="500,00" autocomplete="off">
+    </label>
+  </div>
+
+  <div class="botoes">
+    <button id="calcular-escudo" class="principal" type="button">Calcular</button>
+    <button id="limpar-escudo" type="button">Limpar</button>
+  </div>
+</section>
+
+<div id="saida-escudo"></div>
+
+</div><!-- painel-escudo -->
 
 <footer>
   <p><strong>Isto não é orientação tributária.</strong> É uma calculadora: ela aplica as regras

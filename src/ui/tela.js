@@ -15,6 +15,8 @@ import { apurar } from '../nucleo/apuracao.js';
 import { fechar } from '../fiscal/br/apurar.js';
 import { formatarBRL } from '../nucleo/dinheiro.js';
 import { assinar, rodape } from '../assinatura.js';
+import { faixa, ritmoPara } from '../nucleo/escudo.js';
+import { emCentavos } from '../nucleo/dinheiro.js';
 
 /** Os 100 nomes da fatia aberta. Gerado na construção — ver `construir.mjs`. */
 const CATALOGO = globalThis.__CATALOGO__ ?? [];
@@ -41,6 +43,129 @@ export function iniciar() {
   });
   document.getElementById('csv').addEventListener('click', () => baixar('csv'));
   document.getElementById('json').addEventListener('click', () => baixar('json'));
+
+  ligarAbas();
+  ligarEscudo();
+}
+
+// ── abas ─────────────────────────────────────────────────────
+
+function ligarAbas() {
+  const abas = [
+    ['aba-apuracao', 'painel-apuracao'],
+    ['aba-escudo', 'painel-escudo'],
+  ];
+  for (const [botao] of abas) {
+    document.getElementById(botao).addEventListener('click', () => {
+      for (const [b, painel] of abas) {
+        const ativa = b === botao;
+        document.getElementById(b).classList.toggle('ativa', ativa);
+        document.getElementById(painel).hidden = !ativa;
+      }
+    });
+  }
+}
+
+// ── o escudo ─────────────────────────────────────────────────
+
+function ligarEscudo() {
+  document.getElementById('calcular-escudo').addEventListener('click', calcularEscudo);
+  document.getElementById('limpar-escudo').addEventListener('click', () => {
+    for (const id of ['custo', 'guardado', 'ritmo']) document.getElementById(id).value = '';
+    document.getElementById('saida-escudo').innerHTML = '';
+  });
+  // Enter em qualquer campo calcula — três campos e um botão é atrito demais
+  for (const id of ['custo', 'guardado', 'ritmo']) {
+    document.getElementById(id).addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') calcularEscudo();
+    });
+  }
+}
+
+function calcularEscudo() {
+  const saida = document.getElementById('saida-escudo');
+  const ler1 = (id, seVazio) => {
+    const t = document.getElementById(id).value.trim();
+    if (t === '') return seVazio;
+    return emCentavos(t);
+  };
+
+  try {
+    const entrada = {
+      custoMensal: ler1('custo', null),
+      guardado: ler1('guardado', 0),
+      ritmoMensal: ler1('ritmo', 0),
+    };
+    if (entrada.custoMensal === null) {
+      saida.innerHTML = '<section><div class="erro">Falta o custo vital por mês — '
+        + 'é dele que sai todo o resto.</div></section>';
+      return;
+    }
+    saida.innerHTML = desenharEscudo(faixa(entrada), entrada);
+  } catch (e) {
+    saida.innerHTML = `<section><h2>Não deu para ler</h2><div class="erro">${
+      escapar(String(e.message ?? e))}</div></section>`;
+  }
+}
+
+function desenharEscudo(tres, entrada) {
+  const base = tres[0];
+
+  return `<section>
+    <h2>Onde você está hoje</h2>
+    <p class="numerao">${base.mesesCobertos} ${
+      base.mesesCobertos === 1 ? 'mês coberto' : 'meses cobertos'}</p>
+    <p style="color:var(--fraco);font-size:var(--em1);margin-top:0">
+      É quanto tempo o que você já tem cobre o seu custo vital, sem nenhuma renda entrando.
+      ${base.guardado === 0 ? 'Começar do zero é começar — o primeiro mês coberto é o mais difícil.' : ''}
+    </p>
+  </section>
+
+  <section>
+    <h2>As três metas</h2>
+    <p style="color:var(--fraco);font-size:var(--em1);margin-top:0">
+      Seis meses é o piso que a maior parte da orientação repete. Doze é para quem tem renda
+      variável ou instável. <strong>Qual dos três serve é você quem sabe</strong> — depende de
+      quão previsível é a sua renda, e disso a ferramenta não sabe nada.
+    </p>
+    ${tres.map((e) => blocoEscudo(e, entrada)).join('')}
+  </section>
+
+  <section>
+    <h2>Onde guardar</h2>
+    <p style="margin-top:0">${escapar(base.aviso)}</p>
+    <p style="color:var(--fraco);font-size:var(--em1)">
+      O que a reserva precisa é de <strong>resgate rápido</strong> e de não perder valor no
+      susto — o resto é escolha sua, e vale conversar com alguém que conheça o seu caso.
+    </p>
+  </section>`;
+}
+
+function blocoEscudo(e, entrada) {
+  const prazoTexto = e.completo
+    ? '<strong>já alcançada</strong>'
+    : e.semAporte
+      ? 'sem aporte mensal informado, não dá para estimar prazo'
+      : `<strong>${e.mesesParaCompletar} ${
+          e.mesesParaCompletar === 1 ? 'mês' : 'meses'}</strong> no ritmo atual`;
+
+  // quanto precisaria por mês para fechar em um ano — só quando ainda falta
+  const paraUmAno = e.completo ? null : ritmoPara({ ...entrada, meses: e.meses, emQuantosMeses: 12 });
+
+  return `<div class="mes">
+    <h2>${e.meses} meses<small>${formatarBRL(e.alvo)}</small></h2>
+    <div class="barra"><span style="width:${e.percentual}%"></span></div>
+    <table>
+      <tr><th>Já guardado</th><td>${formatarBRL(e.guardado)} · ${e.percentual}%</td></tr>
+      ${e.completo
+        ? '<tr><th>Situação</th><td><span class="selo sim">reserva completa</span></td></tr>'
+        : `<tr><th>Falta</th><td><strong>${formatarBRL(e.falta)}</strong></td></tr>`}
+      <tr><th>Prazo</th><td>${prazoTexto}</td></tr>
+      ${paraUmAno !== null
+        ? `<tr><th>Para fechar em 12 meses</th><td>${formatarBRL(paraUmAno)} por mês</td></tr>`
+        : ''}
+    </table>
+  </div>`;
 }
 
 function calcular() {

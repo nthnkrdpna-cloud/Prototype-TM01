@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Apuração de cripto — Prototype-TM01</title>
-<meta name="description" content="Calculadora de imposto de criptoativos para pessoa física no Brasil. Roda no navegador, nada sai da sua máquina.">
+<title>Prototype-TM01 — apuração de cripto e reserva de emergência</title>
+<meta name="description" content="Apuração de imposto de criptoativos e cálculo de reserva de emergência, para pessoa física no Brasil. Roda no navegador, nada sai da sua máquina.">
 <style>
 /* A folha de estilo não escolhe uma medida sequer.
  *
@@ -159,6 +159,66 @@ a { color: var(--acento); }
   header { flex-wrap: wrap; }
 }
 
+/* ── abas ──────────────────────────────────────────────────── */
+
+.abas { display: flex; flex-wrap: wrap; gap: var(--em2); margin-bottom: var(--e2); }
+
+.aba {
+  padding: var(--em2) var(--e1);
+  border: 1px solid var(--linha);
+  border-radius: var(--em3);
+  background: transparent;
+  color: var(--fraco);
+  font: inherit;
+  font-size: var(--em1);
+  cursor: pointer;
+}
+.aba:hover { color: var(--acento); border-color: var(--acento); }
+.aba.ativa {
+  background: var(--papel);
+  border-color: var(--acento);
+  color: var(--tinta);
+  font-weight: 600;
+}
+
+/* ── campos do escudo ──────────────────────────────────────── */
+
+.campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--e8), 1fr));
+  gap: var(--e1);
+}
+.campos label { display: flex; flex-direction: column; gap: var(--em3); font-size: var(--em1); color: var(--fraco); }
+.campos input {
+  padding: var(--em2);
+  border: 1px solid var(--linha);
+  border-radius: var(--em3);
+  background: var(--fundo);
+  color: var(--tinta);
+  font: var(--e0)/1.618 ui-monospace, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.campos input:focus { outline: 2px solid var(--acento); outline-offset: 1px; }
+
+/* ── barra de progresso da reserva ─────────────────────────────
+ *
+ * ⚠️ A REGRA DO NÍVEL 1 PROÍBE BARRA DE PROGRESSO que cobra — foi o
+ * mecanismo que afundou o Espelho. Esta é diferente e a diferença é
+ * concreta: ela mede uma COISA QUE A PESSOA ESCOLHEU construir, não uma
+ * pendência que o sistema inventou para ela. Não há meta imposta, não há
+ * prazo cobrado, e não existe estado "atrasado". */
+
+.barra {
+  height: var(--em2);
+  border-radius: var(--em4);
+  background: color-mix(in srgb, var(--linha) 60%, transparent);
+  overflow: hidden;
+  margin: var(--em1) 0;
+}
+.barra span { display: block; height: 100%; background: var(--bom); }
+
+.numerao { font-size: var(--e2); font-weight: 600; font-variant-numeric: tabular-nums; }
+
 </style>
 </head>
 <body>
@@ -167,10 +227,18 @@ a { color: var(--acento); }
 <header>
   <img src="samples/open-set/OPEN-A-001.svg" alt="">
   <div>
-    <h1>Apuração de cripto</h1>
-    <p>Custo médio, isenção e DeCripto — no seu navegador, sem enviar nada para lugar nenhum.</p>
+    <h1>Prototype-TM01</h1>
+    <p>Apuração de cripto e reserva de emergência — no seu navegador,
+    sem enviar nada para lugar nenhum.</p>
   </div>
 </header>
+
+<nav class="abas">
+  <button id="aba-apuracao" class="aba ativa" type="button">Apuração de cripto</button>
+  <button id="aba-escudo" class="aba" type="button">Escudo — reserva de emergência</button>
+</nav>
+
+<div id="painel-apuracao">
 
 <section>
   <h2>Suas operações</h2>
@@ -190,6 +258,40 @@ a { color: var(--acento); }
 </section>
 
 <div id="saida"></div>
+
+</div><!-- painel-apuracao -->
+
+<div id="painel-escudo" hidden>
+
+<section>
+  <h2>Quanto de reserva você precisa</h2>
+  <p style="margin-top:0;color:var(--fraco);font-size:var(--em1)">
+    O <strong>custo vital</strong> é o que não dá para cortar num mês ruim — moradia, comida,
+    remédio, transporte para trabalhar. Não é o gasto total do mês. A diferença entre os dois
+    é quem decide se a reserva vai ser realista ou fantasia.
+  </p>
+
+  <div class="campos">
+    <label>Custo vital por mês
+      <input id="custo" type="text" inputmode="decimal" placeholder="3.000,00" autocomplete="off">
+    </label>
+    <label>Já guardado
+      <input id="guardado" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off">
+    </label>
+    <label>Consigo guardar por mês
+      <input id="ritmo" type="text" inputmode="decimal" placeholder="500,00" autocomplete="off">
+    </label>
+  </div>
+
+  <div class="botoes">
+    <button id="calcular-escudo" class="principal" type="button">Calcular</button>
+    <button id="limpar-escudo" type="button">Limpar</button>
+  </div>
+</section>
+
+<div id="saida-escudo"></div>
+
+</div><!-- painel-escudo -->
 
 <footer>
   <p><strong>Isto não é orientação tributária.</strong> É uma calculadora: ela aplica as regras
@@ -808,6 +910,124 @@ function ordenar(operacoes) {
 
 /** Só as vendas. É o que a apuração de imposto olha. */
 const vendas = (eventos) => eventos.filter((e) => e.tipo === 'venda');
+/* src/nucleo/escudo.js */
+// O Escudo: a reserva de emergência, e quanto falta para ela existir.
+//
+// POR QUE ISTO NÃO MORA EM `fiscal/`. Não tem país. "Quantos meses de despesa
+// você consegue atravessar sem renda" é a mesma pergunta em qualquer lugar do
+// mundo, e a resposta não depende de norma nenhuma. É por isso que este módulo
+// atravessa fronteira de graça, enquanto tudo em `fiscal/br/` precisaria de uma
+// pasta nova por país.
+//
+// E é, de longe, a parte desta ferramenta que serve a mais gente: não exige ter
+// criptoativo, não exige entender custódia, e não tem uma única citação legal
+// que possa envelhecer. É aritmética.
+//
+// ⚠️ O QUE ELE NÃO FAZ, e a linha é a mesma do resto do projeto: **não diz onde
+// guardar o dinheiro.** Calcula a meta, o quanto falta e em quanto tempo você
+// chega no ritmo atual. Recomendar aplicação é assessoria de investimento, tem
+// responsabilidade própria, e não é isto aqui.
+
+/**
+ * A faixa usual, e o motivo de ser faixa e não número.
+ *
+ * Seis meses é o piso que a maior parte da orientação financeira repete; doze
+ * é o teto para quem tem renda variável ou instável. O número certo depende de
+ * quão previsível é a renda de cada um — e isso quem sabe é a pessoa, não a
+ * ferramenta. Por isso os dois extremos são mostrados, e o meio também.
+ */
+const MESES_MINIMO = 6;
+const MESES_MAXIMO = 12;
+
+/**
+ * O alvo, o que falta, e o prazo no ritmo atual.
+ *
+ * Tudo em centavos inteiros, como o resto do projeto. `custoMensal` é o custo
+ * de vida **vital** — o que não dá para cortar num mês ruim, não o gasto total.
+ * A distinção é da pessoa, e a tela pergunta assim.
+ */
+function escudo({ custoMensal, guardado = 0, ritmoMensal = 0, meses = MESES_MINIMO }) {
+  exigirPositivo(custoMensal, 'custo mensal');
+  exigirNaoNegativo(guardado, 'valor guardado');
+  exigirNaoNegativo(ritmoMensal, 'ritmo mensal');
+  if (!Number.isInteger(meses) || meses < 1) {
+    throw new RangeError('meses de reserva tem de ser inteiro e ao menos 1');
+  }
+
+  const alvo = custoMensal * meses;
+  const falta = Math.max(0, alvo - guardado);
+  const completo = falta === 0;
+
+  return {
+    meses,
+    custoMensal,
+    alvo,
+    guardado,
+    falta,
+    completo,
+    // quanto do alvo já existe, em pontos percentuais inteiros
+    percentual: alvo === 0 ? 100 : Math.min(100, Math.floor((guardado * 100) / alvo)),
+    // quantos meses de despesa o que já existe cobre — é o número que a pessoa
+    // realmente quer saber, e é diferente do percentual do alvo
+    mesesCobertos: mesesCobertos(guardado, custoMensal),
+    ...prazo(falta, ritmoMensal),
+    aviso: 'Calcula a meta e o prazo. Onde guardar é decisão sua — isto não é '
+      + 'recomendação de investimento.',
+  };
+}
+
+/**
+ * Em quanto tempo o que falta é alcançado, no ritmo informado.
+ *
+ * ⚠️ RITMO ZERO NÃO DEVOLVE `Infinity`. Dividir por zero em JavaScript devolve
+ * `Infinity`, que numa tela vira "∞ meses" e num CSV vira a palavra `Infinity`
+ * — e quem abrir a planilha não sabe se é erro do programa ou resposta. Aqui o
+ * caso é tratado por inteiro e nomeado: sem aporte, não há prazo, e o campo diz
+ * exatamente isso.
+ */
+function prazo(falta, ritmoMensal) {
+  if (falta === 0) return { mesesParaCompletar: 0, semAporte: false };
+  if (ritmoMensal <= 0) return { mesesParaCompletar: null, semAporte: true };
+  return { mesesParaCompletar: Math.ceil(falta / ritmoMensal), semAporte: false };
+}
+
+/** Quantos meses de despesa o guardado cobre, com uma casa decimal. */
+function mesesCobertos(guardado, custoMensal) {
+  if (custoMensal <= 0) return 0;
+  return Math.floor((guardado * 10) / custoMensal) / 10;
+}
+
+/**
+ * A faixa inteira — 6, 9 e 12 meses de uma vez.
+ *
+ * Existe porque ver os três lado a lado é o que faz a pessoa escolher com
+ * critério, em vez de aceitar o primeiro número que apareceu na tela.
+ */
+function faixa(entrada) {
+  return [MESES_MINIMO, 9, MESES_MAXIMO].map((meses) => escudo({ ...entrada, meses }));
+}
+
+/**
+ * Quanto guardar por mês para fechar num prazo escolhido.
+ *
+ * É a pergunta invertida, e é a que mais aparece: não "quando chego" mas
+ * "quanto preciso separar para chegar em um ano".
+ */
+function ritmoPara({ custoMensal, guardado = 0, meses = MESES_MINIMO, emQuantosMeses }) {
+  if (!Number.isInteger(emQuantosMeses) || emQuantosMeses < 1) {
+    throw new RangeError('o prazo tem de ser inteiro e ao menos 1 mês');
+  }
+  const { falta } = escudo({ custoMensal, guardado, meses });
+  return proporcao(falta, 1, emQuantosMeses);
+}
+
+function exigirPositivo(v, nome) {
+  if (!Number.isFinite(v) || v <= 0) throw new RangeError(`${nome} tem de ser maior que zero`);
+}
+
+function exigirNaoNegativo(v, nome) {
+  if (!Number.isFinite(v) || v < 0) throw new RangeError(`${nome} não pode ser negativo`);
+}
 /* src/fiscal/br/regime.js */
 // Onde o ativo estava → qual regime tributário se aplica.
 //
@@ -1344,6 +1564,129 @@ function iniciar() {
   });
   document.getElementById('csv').addEventListener('click', () => baixar('csv'));
   document.getElementById('json').addEventListener('click', () => baixar('json'));
+
+  ligarAbas();
+  ligarEscudo();
+}
+
+// ── abas ─────────────────────────────────────────────────────
+
+function ligarAbas() {
+  const abas = [
+    ['aba-apuracao', 'painel-apuracao'],
+    ['aba-escudo', 'painel-escudo'],
+  ];
+  for (const [botao] of abas) {
+    document.getElementById(botao).addEventListener('click', () => {
+      for (const [b, painel] of abas) {
+        const ativa = b === botao;
+        document.getElementById(b).classList.toggle('ativa', ativa);
+        document.getElementById(painel).hidden = !ativa;
+      }
+    });
+  }
+}
+
+// ── o escudo ─────────────────────────────────────────────────
+
+function ligarEscudo() {
+  document.getElementById('calcular-escudo').addEventListener('click', calcularEscudo);
+  document.getElementById('limpar-escudo').addEventListener('click', () => {
+    for (const id of ['custo', 'guardado', 'ritmo']) document.getElementById(id).value = '';
+    document.getElementById('saida-escudo').innerHTML = '';
+  });
+  // Enter em qualquer campo calcula — três campos e um botão é atrito demais
+  for (const id of ['custo', 'guardado', 'ritmo']) {
+    document.getElementById(id).addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') calcularEscudo();
+    });
+  }
+}
+
+function calcularEscudo() {
+  const saida = document.getElementById('saida-escudo');
+  const ler1 = (id, seVazio) => {
+    const t = document.getElementById(id).value.trim();
+    if (t === '') return seVazio;
+    return emCentavos(t);
+  };
+
+  try {
+    const entrada = {
+      custoMensal: ler1('custo', null),
+      guardado: ler1('guardado', 0),
+      ritmoMensal: ler1('ritmo', 0),
+    };
+    if (entrada.custoMensal === null) {
+      saida.innerHTML = '<section><div class="erro">Falta o custo vital por mês — '
+        + 'é dele que sai todo o resto.</div></section>';
+      return;
+    }
+    saida.innerHTML = desenharEscudo(faixa(entrada), entrada);
+  } catch (e) {
+    saida.innerHTML = `<section><h2>Não deu para ler</h2><div class="erro">${
+      escapar(String(e.message ?? e))}</div></section>`;
+  }
+}
+
+function desenharEscudo(tres, entrada) {
+  const base = tres[0];
+
+  return `<section>
+    <h2>Onde você está hoje</h2>
+    <p class="numerao">${base.mesesCobertos} ${
+      base.mesesCobertos === 1 ? 'mês coberto' : 'meses cobertos'}</p>
+    <p style="color:var(--fraco);font-size:var(--em1);margin-top:0">
+      É quanto tempo o que você já tem cobre o seu custo vital, sem nenhuma renda entrando.
+      ${base.guardado === 0 ? 'Começar do zero é começar — o primeiro mês coberto é o mais difícil.' : ''}
+    </p>
+  </section>
+
+  <section>
+    <h2>As três metas</h2>
+    <p style="color:var(--fraco);font-size:var(--em1);margin-top:0">
+      Seis meses é o piso que a maior parte da orientação repete. Doze é para quem tem renda
+      variável ou instável. <strong>Qual dos três serve é você quem sabe</strong> — depende de
+      quão previsível é a sua renda, e disso a ferramenta não sabe nada.
+    </p>
+    ${tres.map((e) => blocoEscudo(e, entrada)).join('')}
+  </section>
+
+  <section>
+    <h2>Onde guardar</h2>
+    <p style="margin-top:0">${escapar(base.aviso)}</p>
+    <p style="color:var(--fraco);font-size:var(--em1)">
+      O que a reserva precisa é de <strong>resgate rápido</strong> e de não perder valor no
+      susto — o resto é escolha sua, e vale conversar com alguém que conheça o seu caso.
+    </p>
+  </section>`;
+}
+
+function blocoEscudo(e, entrada) {
+  const prazoTexto = e.completo
+    ? '<strong>já alcançada</strong>'
+    : e.semAporte
+      ? 'sem aporte mensal informado, não dá para estimar prazo'
+      : `<strong>${e.mesesParaCompletar} ${
+          e.mesesParaCompletar === 1 ? 'mês' : 'meses'}</strong> no ritmo atual`;
+
+  // quanto precisaria por mês para fechar em um ano — só quando ainda falta
+  const paraUmAno = e.completo ? null : ritmoPara({ ...entrada, meses: e.meses, emQuantosMeses: 12 });
+
+  return `<div class="mes">
+    <h2>${e.meses} meses<small>${formatarBRL(e.alvo)}</small></h2>
+    <div class="barra"><span style="width:${e.percentual}%"></span></div>
+    <table>
+      <tr><th>Já guardado</th><td>${formatarBRL(e.guardado)} · ${e.percentual}%</td></tr>
+      ${e.completo
+        ? '<tr><th>Situação</th><td><span class="selo sim">reserva completa</span></td></tr>'
+        : `<tr><th>Falta</th><td><strong>${formatarBRL(e.falta)}</strong></td></tr>`}
+      <tr><th>Prazo</th><td>${prazoTexto}</td></tr>
+      ${paraUmAno !== null
+        ? `<tr><th>Para fechar em 12 meses</th><td>${formatarBRL(paraUmAno)} por mês</td></tr>`
+        : ''}
+    </table>
+  </div>`;
 }
 
 function calcular() {

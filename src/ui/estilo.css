@@ -150,3 +150,63 @@ a { color: var(--acento); }
   body { padding: var(--e1); }
   header { flex-wrap: wrap; }
 }
+
+/* ── abas ──────────────────────────────────────────────────── */
+
+.abas { display: flex; flex-wrap: wrap; gap: var(--em2); margin-bottom: var(--e2); }
+
+.aba {
+  padding: var(--em2) var(--e1);
+  border: 1px solid var(--linha);
+  border-radius: var(--em3);
+  background: transparent;
+  color: var(--fraco);
+  font: inherit;
+  font-size: var(--em1);
+  cursor: pointer;
+}
+.aba:hover { color: var(--acento); border-color: var(--acento); }
+.aba.ativa {
+  background: var(--papel);
+  border-color: var(--acento);
+  color: var(--tinta);
+  font-weight: 600;
+}
+
+/* ── campos do escudo ──────────────────────────────────────── */
+
+.campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--e8), 1fr));
+  gap: var(--e1);
+}
+.campos label { display: flex; flex-direction: column; gap: var(--em3); font-size: var(--em1); color: var(--fraco); }
+.campos input {
+  padding: var(--em2);
+  border: 1px solid var(--linha);
+  border-radius: var(--em3);
+  background: var(--fundo);
+  color: var(--tinta);
+  font: var(--e0)/1.618 ui-monospace, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.campos input:focus { outline: 2px solid var(--acento); outline-offset: 1px; }
+
+/* ── barra de progresso da reserva ─────────────────────────────
+ *
+ * ⚠️ A REGRA DO NÍVEL 1 PROÍBE BARRA DE PROGRESSO que cobra — foi o
+ * mecanismo que afundou o Espelho. Esta é diferente e a diferença é
+ * concreta: ela mede uma COISA QUE A PESSOA ESCOLHEU construir, não uma
+ * pendência que o sistema inventou para ela. Não há meta imposta, não há
+ * prazo cobrado, e não existe estado "atrasado". */
+
+.barra {
+  height: var(--em2);
+  border-radius: var(--em4);
+  background: color-mix(in srgb, var(--linha) 60%, transparent);
+  overflow: hidden;
+  margin: var(--em1) 0;
+}
+.barra span { display: block; height: 100%; background: var(--bom); }
+
+.numerao { font-size: var(--e2); font-weight: 600; font-variant-numeric: tabular-nums; }
