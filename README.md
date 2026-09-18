@@ -47,6 +47,7 @@ are **new** — none of them belongs to any set that exists elsewhere.
 
 | | |
 |---|---|
+| [**`GALLERY.md`**](GALLERY.md) | **1,200 pieces in one image**, plus 100 SVG files you can take |
 | [`samples/sigils/`](samples/sigils/) | 24 pieces, colour |
 | [`samples/sigils-black/`](samples/sigils-black/) | the same 24 in pure black, heavier stroke — the variant made for engraving and skin |
 | [`samples/contact-sheet.svg`](samples/contact-sheet.svg) | all 24 on one sheet |
@@ -61,6 +62,13 @@ three fired on this batch.
 **The audio** is the engine's own event list, rendered offline to PCM. Each piece is 5 events,
 0.5 s to 1.4 s. Rendering twice produces identical bytes — the noise component is seeded, not
 random.
+
+### Scale
+
+[**`GALLERY.md`**](GALLERY.md) shows **1,200 pieces in a single image** — three composition modes,
+400 each — and opens a set of **100 SVG files**, generated from a fresh seed and verified against
+every existing piece. That is where to look if the question is what the engine does at volume
+rather than what one piece looks like.
 
 ---
 
