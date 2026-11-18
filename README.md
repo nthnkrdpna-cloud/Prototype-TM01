@@ -13,6 +13,11 @@ it publishes samples and measurements, so the work can be looked at and judged f
 
 By **Nthnkr "dpna"** and **AmandaBT**.
 
+> **Authorship note (18 Nov 2026).** The pieces published here — including the 100-piece open set
+> and the LICENSE that covers them — were made by both authors, and stay credited to both: that
+> credit is a record of who made them and is not removed. Since 3 Oct 2026 the project is carried
+> on by Nthnkr "dpna" alone; work added after that date is his.
+
 > **Status: active development.** The engine works and produces finished pieces. Its central
 > claim — that shape and sound carry the same meaning — **was tested, failed, and was rebuilt.**
 > It has not been re-tested yet. That is stated up front because it is the honest position, and
